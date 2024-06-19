@@ -1,0 +1,9 @@
+Ideja 1: (podobno mumax)
+	1. napišeš .cu file
+	2. poženeš program, ki ustvari .go wrapper za ta .cu file in z nvcc prevede v fatbin, ali v binary za specificen gpu,
+	   wrapper vsebuje vso kodo za komunikacijo z driverjem (loading, calling, blocking), možnost dostave rezultata preko kanala
+	3. v svojem programu uvoziš ta package (če ni enak kot v katerem pišeš)
+	4. uporabljaš te funkcije
+	?5. prevedeš program (vključitev fatbin kar v executable, ali preko wrapperja)
+	
+kliči program samo enkrat in vsakič prevedi for dev (želi da je klicanje programa minimalno, ker kar naprej spreminja .cu file), DOKLER SE FUNCTION HEADER (IME IN ARGUMENTS) NE SPREMENI, NI TREBA KLICATI PROGRAM. (kako narediti? podobno kot make, poglej, če je nek compiled version starejši od source, če je, ga nvcc prevedi, ali pa shrani hash od source file nekam in ga primerjaj) 
