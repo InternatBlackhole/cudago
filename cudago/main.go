@@ -17,11 +17,6 @@ const (
 	kernelRegex = `__global__\s+void\s+(\w+)\s*\(([^)]*)\)`
 )
 
-var (
-	isProd      = false
-	devTemplate = `{{templates/dev.template}}`
-)
-
 func main() {
 	println(devTemplate)
 	//get flags from the command line; this programs flags are until I encounter '--', then nvcc flags and params are after that
@@ -71,3 +66,8 @@ func getKernelNameAndArgs(kernel string) (string, []string, error) {
 func usage() {
 	//do something
 }
+
+var (
+	isProd      = false
+	devTemplate = `{{templates/dev.template}}` //FILL WITH FILE IN BRACKETS
+)

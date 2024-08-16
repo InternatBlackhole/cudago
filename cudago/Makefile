@@ -13,31 +13,20 @@ all: build
 # Build the Go project
 build: $(BIN_FILE)
 
-$(BIN_FILE): $(BUILD_SRC_DIR) | $(BUILD_DIR) $(BIN_DIR)
+$(BIN_FILE): $(SRC_FILES) | $(BUILD_DIR) $(BIN_DIR)
 	@mkdir -p $(BIN_DIR)
 	@echo "Building $(APP_NAME)..."
 	@go build -o $(BIN_FILE) $(SRC_FILES)
 	@echo "Build completed: $(BIN_FILE)"
 
-$(BUILD_DIR)/%.go: $(SRC_DIR)/%.go | $(BUILD_DIR) $(BIN_DIR)
-	@echo "Filling in the template..."
-	@# Match the pattern that contains the path to the file, e.g., "{{path/to/file}}"
-	@# Extract the path from the matched pattern, removing the {{ and }}
-	@# Read the contents of the specified file
-	@# Replace the pattern with the contents of the file
-	@# Print the line (either modified or original)
-	awk '{ \
-    	if (match($$0, /\{\{[^}]+\}\}/)) { \
-        	file_path = substr($$0, RSTART + 2, RLENGTH - 4) \
-        	replacement_text = "" \
-        	while ((getline line < file_path) > 0) { \
-            	replacement_text = replacement_text line "\n" \
-	        } \
-    	    close(file_path) \
-        	gsub(/\{\{[^}]+\}\}/, replacement_text) \
-    	} \
-    	print \
-	}' $(SRC_DIR)/$(notdir $@) > $@
+#$(BUILD_DIR)/%.go: $(SRC_DIR)/%.go | $(BUILD_DIR) $(BIN_DIR)
+#	@echo "Filling in the template..."
+#	@# Match the pattern that contains the path to the file, e.g., "{{path/to/file}}"
+#	@# Extract the path from the matched pattern, removing the {{ and }}
+#	@# Read the contents of the specified file
+#	@# Replace the pattern with the contents of the file
+#	@# Print the line (either modified or original)
+#	@./exp.sh $(SRC_DIR)/$(notdir $@) > $@
 
 # Create build and bin directories if they don't exist
 $(BUILD_DIR):
