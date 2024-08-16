@@ -7,3 +7,5 @@ Ideja 1: (podobno mumax)
 	?5. prevedeš program (vključitev fatbin kar v executable, ali preko wrapperja)
 	
 kliči program samo enkrat in vsakič prevedi for dev (želi da je klicanje programa minimalno, ker kar naprej spreminja .cu file), DOKLER SE FUNCTION HEADER (IME IN ARGUMENTS) NE SPREMENI, NI TREBA KLICATI PROGRAM. (kako narediti? podobno kot make, poglej, če je nek compiled version starejši od source, če je, ga nvcc prevedi, ali pa shrani hash od source file nekam in ga primerjaj) 
+
+Še boljše bi jima bilo, če bi naredil brez tega klica programa 
