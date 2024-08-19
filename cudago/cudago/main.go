@@ -1,14 +1,15 @@
 package main
 
-// #cgo CFLAGS: -I/usr/local/cuda/include
-// #include <stdio.h>
-// #include <cuda.h>
-import "C"
 import (
 	"flag"
 	"os/exec"
 	"regexp"
 	"strings"
+)
+
+var (
+	isProd = false
+	//templates are in templates.go
 )
 
 const (
@@ -18,7 +19,6 @@ const (
 )
 
 func main() {
-	println(devTemplate)
 	//get flags from the command line; this programs flags are until I encounter '--', then nvcc flags and params are after that
 	flag.BoolVar(&isProd, "prod", false, "Set to true if you want to compile with production flags")
 
@@ -66,8 +66,3 @@ func getKernelNameAndArgs(kernel string) (string, []string, error) {
 func usage() {
 	//do something
 }
-
-var (
-	isProd      = false
-	devTemplate = `{{templates/dev.template}}` //FILL WITH FILE IN BRACKETS
-)

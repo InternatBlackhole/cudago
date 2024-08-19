@@ -4,10 +4,12 @@
 			"path": "."
 		},
 		{
-			"path": "cudago"
+			"path": "cudago",
+			"name": "cudago module"
 		},
 		{
-			"path": "cuda"
+			"path": "cuda",
+			"name": "cuda module"
 		}
 	],
 	"settings": {

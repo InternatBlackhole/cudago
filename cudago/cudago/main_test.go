@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -46,15 +48,23 @@ func TestKernelArgsRegexExtraction(t *testing.T) {
 
 }
 
-/*func TestFileTemplateCreation(t *testing.T) {
+func TestFileTemplateCreation(t *testing.T) {
 	// Test the file template creation
-	kernel := NewKernel(testKernelName, testKernelArgsArr[:])
-	file, err := createFileTemplate(kernel)
+
+	kernel := NewKernel()
+	kernel.SetName(testKernelName)
+	kernel.Args = strings.Split(testKernelArgs, ",")
+
+	for i, arg := range kernel.Args {
+		kernel.Args[i] = strings.TrimSpace(arg)
+	}
+
+	kernel.SetPackage("main")
+	file := os.Stdout
+	err := createFileFromDevTemplate(kernel, file)
 	if err != nil {
 		t.Fatal(err)
 	} else {
 		t.Log("File template created successfully")
 	}
-
-	t.Log(file)
-}*/
+}
