@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "cudago"
+		},
+		{
+			"path": "cuda"
 		}
 	],
 	"settings": {
