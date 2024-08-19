@@ -1,3 +1,3 @@
-module timkr.si/cudago/v2
+module github.com/InternatBlackhole/cudago/cugago
 
 go 1.21.3
