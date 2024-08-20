@@ -1,4 +1,4 @@
-package cuda_runtime
+package cudaruntime
 
 // #include <cuda_runtime.h>
 import "C"

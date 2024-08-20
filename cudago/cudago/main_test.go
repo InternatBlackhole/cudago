@@ -10,9 +10,12 @@ const (
 	testKernel     = `__global__ void borders(unsigned char *origImage, int width, int height, unsigned char *gradient, int imgSize)`
 	testKernelName = "borders"
 	testKernelArgs = "unsigned char *origImage, int width, int height, unsigned char *gradient, int imgSize"
+
+	kernelArrParamTest = "__global__ void params(float A[N][N], float B[N][N], float C[N][N], float alpha, float beta, float **params)"
 )
 
 var testKernelArgsArr = [...]string{"unsigned char *origImage", "int width", "int height", "unsigned char *gradient", "int imgSize"}
+var kernelArrParamTestArgs = [...]string{"float A[N][N]", "float B[N][N]", "float C[N][N]", "float alpha", "float beta", "float **params"}
 
 func TestKernelNameRegexExtraction(t *testing.T) {
 	// Test the kernelRegex
@@ -43,6 +46,23 @@ func TestKernelArgsRegexExtraction(t *testing.T) {
 	for i, arg := range args {
 		if arg != testKernelArgsArr[i] {
 			t.Fatalf("Args regex failed to match arg: %s, got: %s", testKernelArgsArr[i], arg)
+		}
+	}
+
+}
+
+func TestKernelArgsRegexExtractionArr(t *testing.T) {
+	// Test the argsRegex
+	_, args, err := getKernelNameAndArgs(kernelArrParamTest)
+	if err != nil {
+		t.Fatal(err)
+	} else {
+		t.Log("Args regex compiled successfully")
+	}
+
+	for i, arg := range args {
+		if arg != kernelArrParamTestArgs[i] {
+			t.Fatalf("Args regex failed to match arg: %s, got: %s", kernelArrParamTestArgs[i], arg)
 		}
 	}
 

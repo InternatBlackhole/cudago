@@ -1,4 +1,4 @@
-package cuda_runtime
+package cudaruntime
 
 //#cgo pkg-config: cudart-12.6
 //
