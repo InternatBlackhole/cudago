@@ -4,7 +4,7 @@
 			"path": "."
 		},
 		{
-			"path": "cudago",
+			"path": "cmd/cudago",
 			"name": "cudago module"
 		},
 		{

@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"strings"
 	"text/template"
@@ -15,7 +16,7 @@ package {{.Package}} //the package where it is placed
 
 import (
     "sync"
-	cuda "github.com/InternatBlackhole/cudago/cuda_runtime"
+	cuda "github.com/InternatBlackhole/cudago/cuda"
 )
 
 type {{$argsName}}Args struct {
@@ -28,7 +29,7 @@ var (
     {{$argsName}}Args = {{$argsName}}Args{}
 )
 
-func {{.Name}}(blocks: int, threads: int, args: {{$argsName}}Args) error {
+func {{.Name}}(blocks: int, threads: int, {{argprint .Args ","}}) error {
 }
 
 /*func {{.Name}}ASync(blocks: int, threads: int, args: {{.Name}}Args) (error, <-chan bool) {
@@ -40,8 +41,9 @@ const fatbin{{.Name}} =
 )
 
 var templateFunctions = template.FuncMap{
-	"upper": strings.ToUpper,
-	"lower": strings.ToLower,
+	"upper":    strings.ToUpper,
+	"lower":    strings.ToLower,
+	"argprint": argPrint,
 }
 
 func createFileFromDevTemplate(kernel *Kernel, outFile *os.File) error {
@@ -63,4 +65,16 @@ func createFileFromDevTemplate(kernel *Kernel, outFile *os.File) error {
 	}
 
 	return nil
+}
+
+func argPrint(args []string, sep string) string {
+	var builder strings.Builder
+	for i, arg := range args {
+		if i == len(args)-1 {
+			fmt.Fprintf(&builder, "%s", arg)
+		} else {
+			fmt.Fprintf(&builder, "%s, ", arg)
+		}
+	}
+	return builder.String()
 }

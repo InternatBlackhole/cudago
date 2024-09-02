@@ -1,6 +1,6 @@
 package cudaruntime
 
-//#cgo pkg-config: cudart-12.6
+//#cgo pkg-config: cudart
 //
 ////WINDOWS:
 //#cgo windows LDFLAGS:-LC:/cuda/lib/x64
