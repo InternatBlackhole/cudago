@@ -37,11 +37,11 @@ func (ptr *MemAllocation) MemFree() error {
 
 func (dev *MemAllocation) MemcpyToDevice(src []byte) error {
 	if dev == nil || dev.Ptr == 0 {
-		return errors.New("Device memory not allocated")
+		return errors.New("device memory not allocated")
 	}
 
 	if len(src) > int(dev.Size) {
-		return errors.New("Source size is greater than device memory size")
+		return errors.New("source size is greater than device memory size")
 	}
 
 	carr := C.CBytes(src) //is a copy needed?
@@ -58,11 +58,11 @@ func (dev *MemAllocation) MemcpyToDevice(src []byte) error {
 func (dev *MemAllocation) MemcpyFromDevice(dst []byte) error {
 
 	if dev == nil || dev.Ptr == 0 {
-		return errors.New("Device memory not allocated")
+		return errors.New("device memory not allocated")
 	}
 
 	if len(dst) > int(dev.Size) {
-		return errors.New("Destination size is greater than device memory size")
+		return errors.New("destination size is greater than device memory size")
 	}
 
 	stat := C.cuMemcpyDtoH(unsafe.Pointer(&dst[0]), C.ulonglong(dev.Ptr), C.size_t(len(dst)))

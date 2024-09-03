@@ -14,9 +14,11 @@ type CudaModule struct {
 
 // LoadModule loads a CUDA module from a file
 func LoadModule(path string) (*CudaModule, error) {
+	pathC := C.CString(path)
+	defer C.free(unsafe.Pointer(pathC))
 	var module C.CUmodule
 	//path is a null terminated string
-	stat := C.cuModuleLoad(&module, C.CString(path))
+	stat := C.cuModuleLoad(&module, pathC)
 
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
@@ -73,8 +75,10 @@ func (m *CudaModule) Unload() error {
 }
 
 func (m *CudaModule) GetFunction(name string) (CudaFunction, error) {
+	nameC := C.CString(name)
+	defer C.free(unsafe.Pointer(nameC))
 	var function C.CUfunction
-	stat := C.cuModuleGetFunction(&function, C.CUmodule(m.mod), C.CString(name))
+	stat := C.cuModuleGetFunction(&function, C.CUmodule(m.mod), nameC)
 
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))

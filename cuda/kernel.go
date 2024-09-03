@@ -31,8 +31,19 @@ func (k *CudaKernel) GetLibrary() (*CudaLibrary, error) {
 	return &CudaLibrary{mod}, nil
 }
 
-func (kernel *CudaKernel) LaunchKernel(grid, block Dim3, args ...unsafe.Pointer) error {
-	config := C.CUlaunchConfig{
+func (k *CudaKernel) GetName() (string, error) {
+	var name *C.char = (*C.char)(C.malloc(256))
+	defer C.free(unsafe.Pointer(name))
+	stat := C.cuKernelGetName((**C.char)(&name), k.kern)
+
+	if stat != C.CUDA_SUCCESS {
+		return "", NewCudaError(uint32(stat))
+	}
+	return C.GoString(name), nil
+}
+
+func (kernel *CudaKernel) Launch(grid, block Dim3, args ...unsafe.Pointer) error {
+	config := &C.CUlaunchConfig{
 		C.uint(grid.X),
 		C.uint(grid.Y),
 		C.uint(grid.Z),
@@ -46,18 +57,29 @@ func (kernel *CudaKernel) LaunchKernel(grid, block Dim3, args ...unsafe.Pointer)
 		[4]byte{}, //___cgo alignment
 	}
 
-	//copy of args to C
-	argc := C.malloc(C.size_t(len(args)) * C.size_t(unsafe.Sizeof(uintptr(0))))
-	defer C.free(argc)
+	//could i just use a slice of unsafe.Pointer and pass it?
 
-	for i, arg := range args {
-		*(*unsafe.Pointer)(unsafe.Pointer(uintptr(argc) + uintptr(i)*unsafe.Sizeof(uintptr(0)))) = arg
+	ptrSize := unsafe.Sizeof(uintptr(0))
+
+	//copy of args to C
+	argp := C.malloc(C.size_t(len(args)) * C.size_t(ptrSize))
+	argv := C.malloc(C.size_t(len(args)) * C.size_t(ptrSize))
+	defer C.free(argp)
+	defer C.free(argv)
+
+	for i := range args {
+		*(*unsafe.Pointer)(offset(argp, i, ptrSize)) = offset(argv, i, ptrSize) // argp[i] = &argv[i]
+		*((*uint64)(offset(argv, i, ptrSize))) = *((*uint64)(args[i]))          // argv[i] = args[i]
 	}
 
-	stat := C.cuLaunchKernelEx((*C.CUlaunchConfig)(unsafe.Pointer(&config)), kernel.Function(), (*unsafe.Pointer)(&argc), nil)
+	stat := C.cuLaunchKernelEx(config, kernel.Function(), (*unsafe.Pointer)(argp), nil)
 
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
 	}
 	return nil
+}
+
+func offset(ptr unsafe.Pointer, off int, size uintptr) unsafe.Pointer {
+	return unsafe.Pointer(uintptr(ptr) + size*uintptr(off))
 }

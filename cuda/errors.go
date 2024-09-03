@@ -3,6 +3,8 @@ package cuda
 //#include <cuda.h>
 import "C"
 
+// TODO: Implement a general error that is not specific to CUDA
+
 type cudaResult struct {
 	res C.CUresult
 }
