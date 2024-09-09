@@ -24,7 +24,10 @@ func main() {
 
 	flag.Parse()
 
+	// use nvrtc?
+
 	nvccFlags := flag.Args() //last ones are the file to search for kernels in
+
 	//add my flags
 	nvccFlags = append(nvccFlags, "--device-c", "-ptx")
 
@@ -54,6 +57,10 @@ func getKernelNameAndArgs(kernel string) (string, []string, error) {
 	}
 
 	kernelName := kernelRegex.FindStringSubmatch(kernel)
+
+	if kernelName == nil {
+		return "", nil, nil
+	}
 
 	splitArgs := strings.Split(kernelName[2], ",")
 	for i, arg := range splitArgs {
