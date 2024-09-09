@@ -11,3 +11,7 @@ kliči program samo enkrat in vsakič prevedi for dev (želi da je klicanje prog
 Še boljše bi jima bilo, če bi naredil brez tega klica programa.
 
 v wrapper bo treba dati cel ta cuda package, ki ga bom spisal
+
+OBVEZNA UPORABA `extern "C"`
+
+en gpu lahko v enem cuda context izvaja vec kernels hkrati (https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#concurrent-kernel-execution)
