@@ -25,35 +25,6 @@ type LibraryOption struct {
 }
 
 func LoadLibraryFromPath(path string, jit_options []JitOption, library_options []LibraryOption) (*CudaLibrary, error) {
-
-	/*jitOptions := C.malloc(C.size_t(len(jit_options)) * C.size_t(unsafe.Sizeof(C.CUjit_option(0))))
-	defer C.free(jitOptions)
-
-	for i, opt := range jit_options {
-		*(*C.CUjit_option)(unsafe.Pointer(uintptr(jitOptions) + uintptr(i)*unsafe.Sizeof(C.CUjit_option(0)))) = C.CUjit_option(opt.Option)
-	}
-
-	jitValues := C.malloc(C.size_t(len(jit_options)) * C.size_t(unsafe.Sizeof(C.uint(0))))
-	defer C.free(jitValues)
-
-	for i, opt := range jit_options {
-		*(*C.uint)(unsafe.Pointer(uintptr(jitValues) + uintptr(i)*unsafe.Sizeof(C.uint(0)))) = C.uint(opt.Value)
-	}
-
-	libraryOptions := C.malloc(C.size_t(len(library_options)) * C.size_t(unsafe.Sizeof(C.CUlibraryOption(0))))
-	defer C.free(libraryOptions)
-
-	for i, opt := range library_options {
-		*(*C.CUlibraryOption)(unsafe.Pointer(uintptr(libraryOptions) + uintptr(i)*unsafe.Sizeof(C.CUlibraryOption(0)))) = C.CUlibraryOption(opt.Option)
-	}
-
-	libraryValues := C.malloc(C.size_t(len(library_options)) * C.size_t(unsafe.Sizeof(C.uint(0))))
-	defer C.free(libraryValues)
-
-	for i, opt := range library_options {
-		*(*C.uint)(unsafe.Pointer(uintptr(libraryValues) + uintptr(i)*unsafe.Sizeof(C.uint(0)))) = C.uint(opt.Value)
-	}*/
-
 	fun := func(jitOpts unsafe.Pointer, jitOptsVals *unsafe.Pointer, numJitOpt C.uint,
 		libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*CudaLibrary, error) {
 		pathC := C.CString(path)
@@ -68,54 +39,13 @@ func LoadLibraryFromPath(path string, jit_options []JitOption, library_options [
 		return &CudaLibrary{lib}, nil
 	}
 
-	/*var lib C.CUlibrary
-	stat := C.cuLibraryLoadFromFile(&lib, C.CString(path), (*C.CUjit_option)(jitOptions), &jitValues, C.uint(len(jit_options)),
-		(*C.CUlibraryOption)(libraryOptions), &libraryValues, C.uint(len(library_options)))
-
-	if stat != C.CUDA_SUCCESS {
-		return nil, NewCudaError(uint32(stat))
-	}*/
-
-	//return &CudaLibrary{lib}, nil
 	return internalLoad(jit_options, library_options, fun)
 }
 
 func LoadLibraryData(data []byte, jit_options []JitOption, library_options []LibraryOption) (*CudaLibrary, error) {
-
 	if len(data) == 0 {
 		return nil, errors.New("data is empty")
 	}
-
-	// i love breaking DRY /s
-	// but seriously, figure out a way to cast to something that you can assign to
-
-	/*jitOptions := C.malloc(C.size_t(len(jit_options)) * C.size_t(unsafe.Sizeof(C.CUjit_option(0))))
-	defer C.free(jitOptions)
-
-	for i, opt := range jit_options {
-		*(*C.CUjit_option)(unsafe.Pointer(uintptr(jitOptions) + uintptr(i)*unsafe.Sizeof(C.CUjit_option(0)))) = C.CUjit_option(opt.Option)
-	}
-
-	jitValues := C.malloc(C.size_t(len(jit_options)) * C.size_t(unsafe.Sizeof(C.uint(0))))
-	defer C.free(jitValues)
-
-	for i, opt := range jit_options {
-		*(*C.uint)(unsafe.Pointer(uintptr(jitValues) + uintptr(i)*unsafe.Sizeof(C.uint(0)))) = C.uint(opt.Value)
-	}
-
-	libraryOptions := C.malloc(C.size_t(len(library_options)) * C.size_t(unsafe.Sizeof(C.CUlibraryOption(0))))
-	defer C.free(libraryOptions)
-
-	for i, opt := range library_options {
-		*(*C.CUlibraryOption)(unsafe.Pointer(uintptr(libraryOptions) + uintptr(i)*unsafe.Sizeof(C.CUlibraryOption(0)))) = C.CUlibraryOption(opt.Option)
-	}
-
-	libraryValues := C.malloc(C.size_t(len(library_options)) * C.size_t(unsafe.Sizeof(C.uint(0))))
-	defer C.free(libraryValues)
-
-	for i, opt := range library_options {
-		*(*C.uint)(unsafe.Pointer(uintptr(libraryValues) + uintptr(i)*unsafe.Sizeof(C.uint(0)))) = C.uint(opt.Value)
-	}*/
 
 	fun := func(jitOpts unsafe.Pointer, jitOptsVals *unsafe.Pointer, numJitOpt C.uint,
 		libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*CudaLibrary, error) {
@@ -129,15 +59,6 @@ func LoadLibraryData(data []byte, jit_options []JitOption, library_options []Lib
 		return &CudaLibrary{lib}, nil
 	}
 
-	/*var lib C.CUlibrary
-	stat := C.cuLibraryLoadData(&lib, unsafe.Pointer(&data[0]), (*C.CUjit_option)(jitOptions), &jitValues, C.uint(len(jit_options)),
-		(*C.CUlibraryOption)(libraryOptions), &libraryValues, C.uint(len(library_options)))
-
-	if stat != C.CUDA_SUCCESS {
-		return nil, NewCudaError(uint32(stat))
-	}*/
-
-	//return &CudaLibrary{lib}, nil
 	return internalLoad(jit_options, library_options, fun)
 }
 

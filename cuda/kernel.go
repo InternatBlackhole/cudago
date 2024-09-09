@@ -43,6 +43,15 @@ func (k *CudaKernel) GetName() (string, error) {
 }
 
 func (kernel *CudaKernel) Launch(grid, block Dim3, args ...unsafe.Pointer) error {
+	return kernel.LaunchEx(grid, block, 0, nil, args...)
+}
+
+func offset(ptr unsafe.Pointer, off int, size uintptr) unsafe.Pointer {
+	return unsafe.Pointer(uintptr(ptr) + size*uintptr(off))
+}
+
+// TODO: add attributes
+func (kernel *CudaKernel) LaunchEx(grid, block Dim3, sharedMem uint64, stream *CudaStream /*attributes?,*/, args ...unsafe.Pointer) error {
 	config := &C.CUlaunchConfig{
 		C.uint(grid.X),
 		C.uint(grid.Y),
@@ -50,14 +59,16 @@ func (kernel *CudaKernel) Launch(grid, block Dim3, args ...unsafe.Pointer) error
 		C.uint(block.X),
 		C.uint(block.Y),
 		C.uint(block.Z),
-		0,         //sharedMemBytes
-		nil,       //stream, 0 for default
-		nil,       //CUlaunchAttribute*
-		0,         //numAttrs
-		[4]byte{}, //___cgo alignment
+		C.uint(sharedMem), //sharedMemBytes
+		nil,               //stream, 0 for default
+		nil,               //CUlaunchAttribute*
+		0,                 //numAttrs
+		[4]byte{},         //___cgo alignment
 	}
 
-	//could i just use a slice of unsafe.Pointer and pass it?
+	if stream != nil {
+		config.hStream = stream.stream
+	}
 
 	ptrSize := unsafe.Sizeof(uintptr(0))
 
@@ -78,8 +89,4 @@ func (kernel *CudaKernel) Launch(grid, block Dim3, args ...unsafe.Pointer) error
 		return NewCudaError(uint32(stat))
 	}
 	return nil
-}
-
-func offset(ptr unsafe.Pointer, off int, size uintptr) unsafe.Pointer {
-	return unsafe.Pointer(uintptr(ptr) + size*uintptr(off))
 }

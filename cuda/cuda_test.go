@@ -45,7 +45,7 @@ func TestEdgesKernel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lib, err := cuda.LoadLibraryFromPath("../tests/edges.ptx", nil, nil)
+	lib, err := cuda.LoadLibraryFromPath("../tests/edgesC.ptx", nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestEdgesKernel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if name != "_Z7bordersPhiiS_i" {
+	if name != "borders" {
 		t.Fatalf("Expected kernel name to be 'Edges', got %s", name)
 	} else {
 		t.Log("Kernel name is correct")
