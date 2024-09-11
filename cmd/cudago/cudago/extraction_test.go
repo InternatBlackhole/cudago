@@ -7,220 +7,244 @@ import (
 	"testing"
 )
 
-func Test_getConstNameAndType(t *testing.T) {
+func Test_getDefinedVariables(t *testing.T) {
 	type args struct {
-		constant string
+		input string
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    string
-		want1   string
-		wantErr bool
+		name      string
+		args      args
+		wantName  []string
+		wantCType []string
+		wantType  []definedLocationType
+		wantErr   bool
 	}{
 		{
-			name:    "unsigned char",
-			args:    args{"__constant__ unsigned char varName;"},
-			want:    "varName",
-			want1:   "unsigned char",
-			wantErr: false,
+			name:      "unsigned char constant",
+			args:      args{"__constant__ unsigned char varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "int",
-			args:    args{"__constant__ int varName;"},
-			want:    "varName",
-			want1:   "int",
-			wantErr: false,
+			name:      "int constant",
+			args:      args{"__constant__ int varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"int"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "array",
-			args:    args{"__constant__ int arrName[10];"},
-			want:    "arrName[10]",
-			want1:   "int",
-			wantErr: false,
+			name:      "array constant",
+			args:      args{"__constant__ int arrName[10];"},
+			wantName:  []string{"arrName[10]"},
+			wantCType: []string{"int"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "long long",
-			args:    args{"__constant__ long long varName;"},
-			want:    "varName",
-			want1:   "long long",
-			wantErr: false,
+			name:      "long long constant",
+			args:      args{"__constant__ long long varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"long long"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "unsigned long long",
-			args:    args{"__constant__ unsigned long long varName;"},
-			want:    "varName",
-			want1:   "unsigned long long",
-			wantErr: false,
+			name:      "unsigned long long constant",
+			args:      args{"__constant__ unsigned long long varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned long long"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "pointer at var name",
-			args:    args{"__constant__ unsigned char *varName;"},
-			want:    "varName",
-			want1:   "unsigned char *",
-			wantErr: false,
+			name:      "pointer at var name constant",
+			args:      args{"__constant__ unsigned char *varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char *"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "pointer at type",
-			args:    args{"__constant__ unsigned char* varName;"},
-			want:    "varName",
-			want1:   "unsigned char *",
-			wantErr: false,
+			name:      "pointer at type constant",
+			args:      args{"__constant__ unsigned char* varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char *"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "pointer in middle",
-			args:    args{"__constant__ unsigned char * varName;"},
-			want:    "varName",
-			want1:   "unsigned char *",
-			wantErr: false,
+			name:      "pointer in middle constant",
+			args:      args{"__constant__ unsigned char * varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char *"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "double pointer",
-			args:    args{"__constant__ unsigned char ** varName;"},
-			want:    "varName",
-			want1:   "unsigned char **",
-			wantErr: false,
+			name:      "double pointer constant",
+			args:      args{"__constant__ unsigned char ** varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char **"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "double with space",
-			args:    args{"__constant__ unsigned char * * varName;"},
-			want:    "varName",
-			want1:   "unsigned char **",
-			wantErr: false,
+			name:      "double with space constant",
+			args:      args{"__constant__ unsigned char * * varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char **"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "triple with space",
-			args:    args{"__constant__ unsigned char * * * varName;"},
-			want:    "varName",
-			want1:   "unsigned char ***",
-			wantErr: false,
+			name:      "triple with space constant",
+			args:      args{"__constant__ unsigned char * * * varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char ***"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
 		{
-			name:    "line break",
-			args:    args{"__constant__ unsigned char\n* varName;\n"},
-			want:    "varName",
-			want1:   "unsigned char *",
-			wantErr: false,
+			name:      "line break constant",
+			args:      args{"__constant__ unsigned char\n* varName;\n"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char *"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST},
+			wantErr:   false,
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := getConstNameAndType(tt.args.constant)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getConstNameAndType() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("getConstNameAndType() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("getConstNameAndType() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
 
-func Test_getVarNameAndType(t *testing.T) {
-	type args struct {
-		variable string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    string
-		want1   string
-		wantErr bool
-	}{
 		{
-			name:    "unsigned char",
-			args:    args{"__device__ unsigned char varName;"},
-			want:    "varName",
-			want1:   "unsigned char",
-			wantErr: false,
+			name:      "unsigned char device",
+			args:      args{"__device__ unsigned char varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "int",
-			args:    args{"__device__ int varName;"},
-			want:    "varName",
-			want1:   "int",
-			wantErr: false,
+			name:      "int device",
+			args:      args{"__device__ int varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"int"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "array",
-			args:    args{"__device__ int arrName[10];"},
-			want:    "arrName[10]",
-			want1:   "int",
-			wantErr: false,
+			name:      "array device",
+			args:      args{"__device__ int arrName[10];"},
+			wantName:  []string{"arrName[10]"},
+			wantCType: []string{"int"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "long long",
-			args:    args{"__device__ long long varName;"},
-			want:    "varName",
-			want1:   "long long",
-			wantErr: false,
+			name:      "long long device",
+			args:      args{"__device__ long long varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"long long"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "unsigned long long",
-			args:    args{"__device__ unsigned long long varName;"},
-			want:    "varName",
-			want1:   "unsigned long long",
-			wantErr: false,
+			name:      "unsigned long long device",
+			args:      args{"__device__ unsigned long long varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned long long"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "pointer at var name",
-			args:    args{"__device__ unsigned char *varName;"},
-			want:    "varName",
-			want1:   "unsigned char *",
-			wantErr: false,
+			name:      "pointer at var name device",
+			args:      args{"__device__ unsigned char *varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char *"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "pointer at type",
-			args:    args{"__device__ unsigned char* varName;"},
-			want:    "varName",
-			want1:   "unsigned char *",
-			wantErr: false,
+			name:      "pointer at type device",
+			args:      args{"__device__ unsigned char* varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char *"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "pointer in middle",
-			args:    args{"__device__ unsigned char * varName;"},
-			want:    "varName",
-			want1:   "unsigned char *",
-			wantErr: false,
+			name:      "pointer in middle device",
+			args:      args{"__device__ unsigned char * varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char *"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "double pointer",
-			args:    args{"__device__ unsigned char ** varName;"},
-			want:    "varName",
-			want1:   "unsigned char **",
-			wantErr: false,
+			name:      "double pointer device",
+			args:      args{"__device__ unsigned char ** varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char **"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "double with space",
-			args:    args{"__device__ unsigned char * * varName;"},
-			want:    "varName",
-			want1:   "unsigned char **",
-			wantErr: false,
+			name:      "double with space device",
+			args:      args{"__device__ unsigned char * * varName;"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char **"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 		{
-			name:    "line break",
-			args:    args{"__device__ unsigned char\n* varName;\n"},
-			want:    "varName",
-			want1:   "unsigned char *",
-			wantErr: false,
+			name:      "line break device",
+			args:      args{"__device__ unsigned char\n* varName;\n"},
+			wantName:  []string{"varName"},
+			wantCType: []string{"unsigned char *"},
+			wantType:  []definedLocationType{TYPE_DEVICE_VAR},
+			wantErr:   false,
+		},
+
+		{
+			name:      "unsigned char device and constant",
+			args:      args{"__constant__ unsigned\t long* varName1;\n__device__ unsigned\n char varName2;"},
+			wantName:  []string{"varName1", "varName2"},
+			wantCType: []string{"unsigned long *", "unsigned char"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST, TYPE_DEVICE_VAR},
+			wantErr:   false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := getVarNameAndType(tt.args.variable)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getVarNameAndType() error = %v, wantErr %v", err, tt.wantErr)
+			gotNameCorr, gotCTypeCorr, gotTypeCorr, index := false, false, false, -1
+			gotNameLatest, gotCTypeLatest, gotTypeLatest := "", "", definedLocationType(0)
+			err := getDefinedVariables(tt.args.input,
+				func(name string, ctyp string, typ definedLocationType) bool {
+					index++
+					gotNameCorr = name == tt.wantName[index]
+					gotCTypeCorr = ctyp == tt.wantCType[index]
+					gotTypeCorr = typ == tt.wantType[index]
+					gotNameLatest = name
+					gotCTypeLatest = ctyp
+					gotTypeLatest = typ
+					//continue if all are correct
+					return gotNameCorr && gotCTypeCorr && gotTypeCorr
+				})
+			if err != nil {
+				//error occured
+				if !tt.wantErr {
+					t.Errorf("getDefinedVariables() error = %v, wantErr %v", err, tt.wantErr)
+				}
 				return
 			}
-			if got != tt.want {
-				t.Errorf("getVarNameAndType() got = %v, want %v", got, tt.want)
+			if !gotNameCorr {
+				t.Errorf("getDefinedVariables() gotName = %v, want %v", gotNameLatest, tt.wantName[index])
 			}
-			if got1 != tt.want1 {
-				t.Errorf("getVarNameAndType() got1 = %v, want %v", got1, tt.want1)
+			if !gotCTypeCorr {
+				t.Errorf("getDefinedVariables() gotCType = %v, want %v", gotCTypeLatest, tt.wantCType[index])
+			}
+			if !gotTypeCorr {
+				t.Errorf("getDefinedVariables() gotType = %v, want %v", gotTypeLatest, tt.wantType[index])
 			}
 		})
 	}
@@ -281,30 +305,47 @@ func Test_getKernelNameAndArgs(t *testing.T) {
 		},
 		{
 			name:    "multiple kernels",
-			args:    args{"\n  \t__global__ void kernel1(int* a, int b)\n\n    __global__    void kernel2(int c, int d)"},
+			args:    args{"\n  \t__global__ void kernel1(int* a, int b)\n\n    __global__    void kernel2(unsigned int c, int d)"},
 			want:    []string{"kernel1", "kernel2"},
-			want1:   [][]string{{"int* a", "int b"}, {"int c", "int d"}},
+			want1:   [][]string{{"int* a", "int b"}, {"unsigned int c", "int d"}},
+			wantErr: false,
+		},
+		{
+			name:    "only header",
+			args:    args{"__global__ void \nkernel1(); "},
+			want:    []string{"kernel1"},
+			want1:   [][]string{nil},
+			wantErr: false,
+		},
+		{
+			name:    "with body",
+			args:    args{"__global__ void kernel1() { int a = 0; }"},
+			want:    []string{"kernel1"},
+			want1:   [][]string{nil},
+			wantErr: false,
+		},
+		{
+			name:    "with body and args",
+			args:    args{"__global__ void kernel1(int a) { int b = 0; }"},
+			want:    []string{"kernel1"},
+			want1:   [][]string{{"int a"}},
 			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotCorrect, got1Correct, index := false, false, 0
-			gotLatest := ""
-			var got1Latest []string = nil
+			gotNameCorrect, gotArgsCorrect, index := false, false, 0
+			gotNameLatest := ""
+			var gotArgsLatest []string = nil
 			err := getKernelNameAndArgs(tt.args.kernel,
-				func(got string, got1 []string) bool {
-					gotCorrect = got == tt.want[index]
-					gotLatest = got
-					if !gotCorrect {
-						index++
-						return false
-					}
-					got1Correct = reflect.DeepEqual(got1, tt.want1[index])
-					got1Latest = got1
+				func(name string, args []string) bool {
+					gotNameCorrect = name == tt.want[index]
+					gotArgsCorrect = reflect.DeepEqual(args, tt.want1[index])
+					gotNameLatest = name
+					gotArgsLatest = args
 					index++
-					return got1Correct // continue if both are correct
+					return gotNameCorrect && gotArgsCorrect // continue if both are correct
 				})
 			if err != nil {
 				//error occured
@@ -313,11 +354,11 @@ func Test_getKernelNameAndArgs(t *testing.T) {
 				}
 				return
 			}
-			if !gotCorrect {
-				t.Errorf("getKernelNameAndArgs() got = %v, want %v", gotLatest, tt.want[index])
+			if !gotNameCorrect {
+				t.Errorf("getKernelNameAndArgs() gotName = %v, want %v", gotNameLatest, tt.want[index])
 			}
-			if !got1Correct {
-				t.Errorf("getKernelNameAndArgs() got1 = %v, want %v", got1Latest, tt.want1[index])
+			if !gotArgsCorrect {
+				t.Errorf("getKernelNameAndArgs() gotArgs = %v, want %v", gotArgsLatest, tt.want1[index])
 			}
 		})
 	}

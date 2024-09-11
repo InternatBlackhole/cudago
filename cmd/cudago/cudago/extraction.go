@@ -11,19 +11,49 @@ import (
 const (
 	// kernelRegex is the regex to match a CUDA kernel function
 	// format: __global__ void kernelName(type1 arg1, type2 arg2, ...)
-	kernelRegex = `__global__\s+void\s+(\w+)\s*\(([^)]*)\)`
+	kernelRegex = `\s*__global__\s+void\s+([[:alpha:]_]\w*)\s*\(([^)]*)\)\s*;*`
+
 	// constRegex is the regex to match a CUDA constant
-	// format: __constant__ type constName
-	constRegex = `__constant__\s+([^\(\)]*);`
+	//constRegex = `__constant__\s+([^\(\)]*);`
 	// varRegex is the regex to match a CUDA variable
+	//varRegex = `__device__\s+([^\(\)]*);`
+
+	// regexConstVar is the regex to match a CUDA constant or device variable
 	// format: __device__ type varName
-	varRegex = `__device__\s+([^\(\)]*);`
+	// format: __constant__ type constName
+	regexConstVar = `\s*__(device|constant)__\s+([^\(\);]*);+\s*`
 )
+
+type definedLocationType int
+
+const (
+	TYPE_DEVICE_CONST definedLocationType = iota
+	TYPE_DEVICE_VAR   definedLocationType = iota
+	TYPE_KERNEL_FUNC  definedLocationType = iota
+	TYPE_DEVICE_FUNC  definedLocationType = iota
+)
+
+func keywordToType(keyword string, isFunc bool) definedLocationType {
+	switch keyword {
+	case "device":
+		if isFunc {
+			return TYPE_DEVICE_FUNC
+		}
+		return TYPE_DEVICE_VAR
+	case "constant":
+		return TYPE_DEVICE_CONST
+	case "global":
+		return TYPE_KERNEL_FUNC
+	default:
+		return -1
+	}
+}
 
 var (
 	kernelRegexCompiled = regexp.MustCompile(kernelRegex)
-	constRegexCompiled  = regexp.MustCompile(constRegex)
-	varRegexCompiled    = regexp.MustCompile(varRegex)
+	//constRegexCompiled    = regexp.MustCompile(constRegex)
+	//varRegexCompiled      = regexp.MustCompile(varRegex)
+	regexConstVarCompiled = regexp.MustCompile(regexConstVar)
 )
 
 type RuneReader struct {
@@ -95,6 +125,7 @@ func (r *RuneReader) ReadRune() (rune, int, error) {
 
 // returns the name and arguments of a kernel
 func getKernelNameAndArgs(kernel string, receiver func(name string, args []string) bool) error {
+	//TODO: could be merged with processInput, look into named capture groups
 	kernelName := kernelRegexCompiled.FindAllStringSubmatchIndex(kernel, -1)
 
 	if kernelName == nil {
@@ -123,25 +154,40 @@ func getKernelNameAndArgs(kernel string, receiver func(name string, args []strin
 }
 
 // returns the name and type of a constant
-func getConstNameAndType(constant string) (string, string, error) {
-	constantName := constRegexCompiled.FindStringSubmatch(constant)
-
-	if constantName == nil {
-		return "", "", errors.New("no match")
-	}
-
-	return extractNameAndType(constantName[1])
-}
+/*func getConstNameAndType(constant string, receiver func(name string, typ string) bool) error {
+	return processInput(constant, constRegexCompiled, receiver)
+}*/
 
 // returns the name and type of a variable
-func getVarNameAndType(variable string) (string, string, error) {
-	varName := varRegexCompiled.FindStringSubmatch(variable)
+/*func getVarNameAndType(variable string, receiver func(name string, typ string) bool) error {
+	return processInput(variable, varRegexCompiled, receiver)
+}*/
 
-	if varName == nil {
-		return "", "", errors.New("no match")
+func getDefinedVariables(input string, receiver func(name string, ctyp string, typ definedLocationType) bool) error {
+	matches := regexConstVarCompiled.FindAllStringSubmatchIndex(input, -1)
+
+	if matches == nil {
+		return errors.New("no match")
 	}
 
-	return extractNameAndType(varName[1])
+	//match can be __device__ or __constant__
+	for _, match := range matches {
+		nameAndTypeLoc := match[4:6]
+		actual := input[nameAndTypeLoc[0]:nameAndTypeLoc[1]]
+		name, ctyp, err := extractNameAndType(actual)
+		if err != nil {
+			return err
+		}
+
+		definedLoc := match[2:4]
+		defined := input[definedLoc[0]:definedLoc[1]]
+		typ := keywordToType(defined, false)
+		if !receiver(name, ctyp, typ) {
+			break
+		}
+	}
+
+	return nil
 }
 
 func extractNameAndType(line string) (string, string, error) {
