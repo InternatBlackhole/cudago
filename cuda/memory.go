@@ -8,8 +8,9 @@ import (
 )
 
 type MemAllocation struct {
-	Ptr  uintptr
-	Size uint64
+	Ptr      uintptr //CUdeviceptr
+	Size     uint64
+	freeable bool
 }
 
 func MemAlloc(size uint64) (*MemAllocation, error) {
@@ -20,10 +21,18 @@ func MemAlloc(size uint64) (*MemAllocation, error) {
 		return nil, NewCudaError(uint32(stat))
 	}
 
-	return &MemAllocation{uintptr(ptr), size}, nil
+	return &MemAllocation{uintptr(ptr), size, true}, nil
 }
 
 func (ptr *MemAllocation) MemFree() error {
+	if ptr == nil || ptr.Ptr == 0 {
+		return nil
+	}
+
+	if !ptr.freeable {
+		return nil
+	}
+
 	stat := C.cuMemFree(C.ulonglong(ptr.Ptr))
 
 	if stat != C.CUDA_SUCCESS {

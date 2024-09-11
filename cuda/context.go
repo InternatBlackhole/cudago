@@ -66,6 +66,27 @@ func ContextSynchronize() error {
 	return nil
 }
 
+func PushCurrentContext(ctx *CudaContext) error {
+	stat := C.cuCtxPushCurrent(ctx.ctx)
+
+	if stat != C.CUDA_SUCCESS {
+		return NewCudaError(uint32(stat))
+	}
+
+	return nil
+}
+
+func PopCurrentContext() (*CudaContext, error) {
+	var ctx C.CUcontext
+	stat := C.cuCtxPopCurrent(&ctx)
+
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
+	}
+
+	return &CudaContext{ctx, nil}, nil
+}
+
 func DevicePrimaryCtxRetain(device *CudaDevice) (*CudaPrimaryCtx, error) {
 	var ctx C.CUcontext
 	stat := C.cuDevicePrimaryCtxRetain(&ctx, C.int(device.dev))

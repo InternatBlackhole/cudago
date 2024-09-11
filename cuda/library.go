@@ -134,7 +134,7 @@ func (lib *CudaLibrary) GetModule() (*CudaModule, error) {
 	return &CudaModule{module}, nil
 }
 
-func (lib *CudaLibrary) GetKernels() ([]CudaKernel, error) {
+func (lib *CudaLibrary) GetKernels() ([]*CudaKernel, error) {
 	var count C.uint
 	stat := C.cuLibraryGetKernelCount(&count, lib.lib)
 	if stat != C.CUDA_SUCCESS {
@@ -148,11 +148,23 @@ func (lib *CudaLibrary) GetKernels() ([]CudaKernel, error) {
 		return nil, NewCudaError(uint32(stat))
 	}
 
-	res := make([]CudaKernel, int(count))
+	res := make([]*CudaKernel, int(count))
 	for i := 0; i < int(count); i++ {
-		res[i] = CudaKernel{*(*C.CUkernel)(unsafe.Pointer(uintptr(kernels) + uintptr(i)*unsafe.Sizeof(C.CUkernel(nil))))}
+		res[i] = &CudaKernel{*(*C.CUkernel)(unsafe.Pointer(uintptr(kernels) + uintptr(i)*unsafe.Sizeof(C.CUkernel(nil))))}
 	}
 	return res, nil
+}
+
+func (lib *CudaLibrary) GetGlobal(name string) (*MemAllocation, error) {
+	nameC := C.CString(name)
+	defer C.free(unsafe.Pointer(nameC))
+	var mem C.CUdeviceptr
+	var size C.size_t
+	stat := C.cuLibraryGetGlobal(&mem, &size, lib.lib, nameC)
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
+	}
+	return &MemAllocation{uintptr(mem), uint64(size), false}, nil
 }
 
 const (

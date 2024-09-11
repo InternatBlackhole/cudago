@@ -7,7 +7,14 @@ import (
 	"unsafe"
 )
 
-type CudaFunction C.CUfunction
+type CudaFunction struct {
+	fun C.CUfunction
+}
+
+func (f *CudaFunction) AsKernel() (*CudaKernel, error) {
+	return &CudaKernel{C.CUkernel(unsafe.Pointer(f.fun))}, nil
+}
+
 type CudaModule struct {
 	mod C.CUmodule
 }
@@ -74,7 +81,31 @@ func (m *CudaModule) Unload() error {
 	return nil
 }
 
-func (m *CudaModule) GetFunction(name string) (CudaFunction, error) {
+func (m *CudaModule) GetFunctions() ([]*CudaFunction, error) {
+	var count C.uint
+	stat := C.cuModuleGetFunctionCount(&count, C.CUmodule(m.mod))
+
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
+	}
+
+	functions := C.malloc(C.size_t(count) * C.sizeof_CUfunction)
+	defer C.free(functions)
+
+	stat = C.cuModuleEnumerateFunctions((*C.CUfunction)(functions), count, C.CUmodule(m.mod))
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
+	}
+
+	functionsSlice := make([]*CudaFunction, count)
+	for i := 0; i < int(count); i++ {
+		functionsSlice[i] = &CudaFunction{C.CUfunction(unsafe.Pointer(uintptr(functions) + uintptr(i)*C.sizeof_CUfunction))}
+	}
+
+	return functionsSlice, nil
+}
+
+func (m *CudaModule) GetFunction(name string) (*CudaFunction, error) {
 	nameC := C.CString(name)
 	defer C.free(unsafe.Pointer(nameC))
 	var function C.CUfunction
@@ -84,5 +115,19 @@ func (m *CudaModule) GetFunction(name string) (CudaFunction, error) {
 		return nil, NewCudaError(uint32(stat))
 	}
 
-	return CudaFunction(function), nil
+	return &CudaFunction{function}, nil
+}
+
+func (m *CudaModule) GetGlobal(name string) (*MemAllocation, error) {
+	nameC := C.CString(name)
+	defer C.free(unsafe.Pointer(nameC))
+	var mem C.CUdeviceptr
+	var size C.size_t
+	stat := C.cuModuleGetGlobal(&mem, &size, C.CUmodule(m.mod), nameC)
+
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
+	}
+
+	return &MemAllocation{uintptr(mem), uint64(size), false}, nil
 }

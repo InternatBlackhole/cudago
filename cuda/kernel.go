@@ -17,8 +17,13 @@ type CudaKernel struct {
 	kern C.CUkernel
 }
 
-func (k *CudaKernel) Function() CudaFunction {
-	return CudaFunction(unsafe.Pointer(k.kern))
+func (k *CudaKernel) Function() (*CudaFunction, error) {
+	var fun C.CUfunction
+	stat := C.cuKernelGetFunction(&fun, k.kern)
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
+	}
+	return &CudaFunction{fun}, nil
 }
 
 func (k *CudaKernel) GetLibrary() (*CudaLibrary, error) {
@@ -46,12 +51,19 @@ func (kernel *CudaKernel) Launch(grid, block Dim3, args ...unsafe.Pointer) error
 	return kernel.LaunchEx(grid, block, 0, nil, args...)
 }
 
-func offset(ptr unsafe.Pointer, off int, size uintptr) unsafe.Pointer {
-	return unsafe.Pointer(uintptr(ptr) + size*uintptr(off))
-}
-
 // TODO: add attributes
 func (kernel *CudaKernel) LaunchEx(grid, block Dim3, sharedMem uint64, stream *CudaStream /*attributes?,*/, args ...unsafe.Pointer) error {
+	fun, err := kernel.Function()
+	if err != nil {
+		return err
+	}
+	return internalLaunchEx(fun.fun, grid, block, sharedMem, stream, args...)
+}
+
+func internalLaunchEx(func_ C.CUfunction, grid, block Dim3, sharedMem uint64, stream *CudaStream, args ...unsafe.Pointer) error {
+	offset := func(ptr unsafe.Pointer, off int, size uintptr) unsafe.Pointer {
+		return unsafe.Pointer(uintptr(ptr) + size*uintptr(off))
+	}
 	config := &C.CUlaunchConfig{
 		C.uint(grid.X),
 		C.uint(grid.Y),
@@ -83,7 +95,7 @@ func (kernel *CudaKernel) LaunchEx(grid, block Dim3, sharedMem uint64, stream *C
 		*((*uint64)(offset(argv, i, ptrSize))) = *((*uint64)(args[i]))          // argv[i] = args[i]
 	}
 
-	stat := C.cuLaunchKernelEx(config, kernel.Function(), (*unsafe.Pointer)(argp), nil)
+	stat := C.cuLaunchKernelEx(config, func_, (*unsafe.Pointer)(argp), nil)
 
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
