@@ -7,7 +7,7 @@ import (
 	"unsafe"
 )
 
-type CudaLibrary struct {
+type Library struct {
 	lib C.CUlibrary
 }
 
@@ -24,9 +24,9 @@ type LibraryOption struct {
 	Value  uint32
 }
 
-func LoadLibraryFromPath(path string, jit_options []JitOption, library_options []LibraryOption) (*CudaLibrary, error) {
+func LoadLibraryFromPath(path string, jit_options []JitOption, library_options []LibraryOption) (*Library, error) {
 	fun := func(jitOpts unsafe.Pointer, jitOptsVals *unsafe.Pointer, numJitOpt C.uint,
-		libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*CudaLibrary, error) {
+		libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*Library, error) {
 		pathC := C.CString(path)
 		defer C.free(unsafe.Pointer(pathC))
 		var lib C.CUlibrary
@@ -36,19 +36,19 @@ func LoadLibraryFromPath(path string, jit_options []JitOption, library_options [
 		if stat != C.CUDA_SUCCESS {
 			return nil, NewCudaError(uint32(stat))
 		}
-		return &CudaLibrary{lib}, nil
+		return &Library{lib}, nil
 	}
 
 	return internalLoad(jit_options, library_options, fun)
 }
 
-func LoadLibraryData(data []byte, jit_options []JitOption, library_options []LibraryOption) (*CudaLibrary, error) {
+func LoadLibraryData(data []byte, jit_options []JitOption, library_options []LibraryOption) (*Library, error) {
 	if len(data) == 0 {
 		return nil, errors.New("data is empty")
 	}
 
 	fun := func(jitOpts unsafe.Pointer, jitOptsVals *unsafe.Pointer, numJitOpt C.uint,
-		libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*CudaLibrary, error) {
+		libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*Library, error) {
 		var lib C.CUlibrary
 		stat := C.cuLibraryLoadData(&lib, unsafe.Pointer(&data[0]), (*C.CUjit_option)(jitOpts), jitOptsVals, numJitOpt,
 			(*C.CUlibraryOption)(libOpts), libOptsVals, libOptNum)
@@ -56,16 +56,16 @@ func LoadLibraryData(data []byte, jit_options []JitOption, library_options []Lib
 		if stat != C.CUDA_SUCCESS {
 			return nil, NewCudaError(uint32(stat))
 		}
-		return &CudaLibrary{lib}, nil
+		return &Library{lib}, nil
 	}
 
 	return internalLoad(jit_options, library_options, fun)
 }
 
 type internalFunc func(jitOpts unsafe.Pointer, jitOptsVals *unsafe.Pointer, numJitOpt C.uint,
-	libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*CudaLibrary, error)
+	libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*Library, error)
 
-func internalLoad(jit_options []JitOption, library_options []LibraryOption, fun internalFunc) (*CudaLibrary, error) {
+func internalLoad(jit_options []JitOption, library_options []LibraryOption, fun internalFunc) (*Library, error) {
 	var jitOptions unsafe.Pointer = nil
 	var jitValues unsafe.Pointer = nil
 	var libraryOptions unsafe.Pointer = nil
@@ -106,7 +106,7 @@ func internalLoad(jit_options []JitOption, library_options []LibraryOption, fun 
 	return fun(jitOptions, &jitValues, C.uint(len(jit_options)), libraryOptions, &libraryValues, C.uint(len(library_options)))
 }
 
-func (lib *CudaLibrary) Unload() error {
+func (lib *Library) Unload() error {
 	stat := C.cuLibraryUnload(lib.lib)
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
@@ -114,7 +114,7 @@ func (lib *CudaLibrary) Unload() error {
 	return nil
 }
 
-func (lib *CudaLibrary) GetKernel(name string) (*CudaKernel, error) {
+func (lib *Library) GetKernel(name string) (*Kernel, error) {
 	nameC := C.CString(name)
 	defer C.free(unsafe.Pointer(nameC))
 	var kernel C.CUkernel
@@ -122,19 +122,19 @@ func (lib *CudaLibrary) GetKernel(name string) (*CudaKernel, error) {
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &CudaKernel{kernel}, nil
+	return &Kernel{kernel}, nil
 }
 
-func (lib *CudaLibrary) GetModule() (*CudaModule, error) {
+func (lib *Library) GetModule() (*Module, error) {
 	var module C.CUmodule
 	stat := C.cuLibraryGetModule(&module, lib.lib)
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &CudaModule{module}, nil
+	return &Module{module}, nil
 }
 
-func (lib *CudaLibrary) GetKernels() ([]*CudaKernel, error) {
+func (lib *Library) GetKernels() ([]*Kernel, error) {
 	var count C.uint
 	stat := C.cuLibraryGetKernelCount(&count, lib.lib)
 	if stat != C.CUDA_SUCCESS {
@@ -148,14 +148,14 @@ func (lib *CudaLibrary) GetKernels() ([]*CudaKernel, error) {
 		return nil, NewCudaError(uint32(stat))
 	}
 
-	res := make([]*CudaKernel, int(count))
+	res := make([]*Kernel, int(count))
 	for i := 0; i < int(count); i++ {
-		res[i] = &CudaKernel{*(*C.CUkernel)(unsafe.Pointer(uintptr(kernels) + uintptr(i)*unsafe.Sizeof(C.CUkernel(nil))))}
+		res[i] = &Kernel{*(*C.CUkernel)(unsafe.Pointer(uintptr(kernels) + uintptr(i)*unsafe.Sizeof(C.CUkernel(nil))))}
 	}
 	return res, nil
 }
 
-func (lib *CudaLibrary) GetGlobal(name string) (*MemAllocation, error) {
+func (lib *Library) GetGlobal(name string) (*MemAllocation, error) {
 	nameC := C.CString(name)
 	defer C.free(unsafe.Pointer(nameC))
 	var mem C.CUdeviceptr

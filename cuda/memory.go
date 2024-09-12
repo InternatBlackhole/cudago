@@ -13,6 +13,10 @@ type MemAllocation struct {
 	freeable bool
 }
 
+func WrapAllocation(ptr uintptr, size uint64, freeable bool) *MemAllocation {
+	return &MemAllocation{ptr, size, freeable}
+}
+
 func MemAlloc(size uint64) (*MemAllocation, error) {
 	var ptr C.ulonglong
 	stat := C.cuMemAlloc(&ptr, C.size_t(size))

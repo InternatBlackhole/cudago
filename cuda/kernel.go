@@ -13,30 +13,30 @@ type Dim3 struct {
 	X, Y, Z uint32
 }
 
-type CudaKernel struct {
+type Kernel struct {
 	kern C.CUkernel
 }
 
-func (k *CudaKernel) Function() (*CudaFunction, error) {
+func (k *Kernel) Function() (*Function, error) {
 	var fun C.CUfunction
 	stat := C.cuKernelGetFunction(&fun, k.kern)
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &CudaFunction{fun}, nil
+	return &Function{fun}, nil
 }
 
-func (k *CudaKernel) GetLibrary() (*CudaLibrary, error) {
+func (k *Kernel) GetLibrary() (*Library, error) {
 	var mod C.CUlibrary
 	stat := C.cuKernelGetLibrary(&mod, k.kern)
 
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &CudaLibrary{mod}, nil
+	return &Library{mod}, nil
 }
 
-func (k *CudaKernel) GetName() (string, error) {
+func (k *Kernel) GetName() (string, error) {
 	var name *C.char = (*C.char)(C.malloc(256))
 	defer C.free(unsafe.Pointer(name))
 	stat := C.cuKernelGetName((**C.char)(&name), k.kern)
@@ -47,12 +47,12 @@ func (k *CudaKernel) GetName() (string, error) {
 	return C.GoString(name), nil
 }
 
-func (kernel *CudaKernel) Launch(grid, block Dim3, args ...unsafe.Pointer) error {
+func (kernel *Kernel) Launch(grid, block Dim3, args ...unsafe.Pointer) error {
 	return kernel.LaunchEx(grid, block, 0, nil, args...)
 }
 
 // TODO: add attributes
-func (kernel *CudaKernel) LaunchEx(grid, block Dim3, sharedMem uint64, stream *CudaStream /*attributes?,*/, args ...unsafe.Pointer) error {
+func (kernel *Kernel) LaunchEx(grid, block Dim3, sharedMem uint64, stream *CudaStream /*attributes?,*/, args ...unsafe.Pointer) error {
 	fun, err := kernel.Function()
 	if err != nil {
 		return err
