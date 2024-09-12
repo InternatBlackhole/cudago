@@ -6,17 +6,27 @@ import (
 )
 
 type TemplateArgs struct {
-	Package string
-	Funcs   []*CuFileFunc
-	PTXCode string
+	Package   string
+	FileName  string
+	Funcs     []*CuFileFunc
+	Constants map[string]string // const name -> const type (is always cuda.MemAllocation)
+	Variables map[string]string // var name -> var type (is always cuda.MemAllocation)
+	PTXCode   string
 }
 
 type CuFileFunc struct {
-	Name     string
-	RawName  string
+	Name     string            // Exported name
+	RawName  string            // Original name
 	GoArgs   map[string]string // arg name -> type
 	CArgs    map[string]string // arg name -> type
 	IsKernel bool
+}
+
+type CuVar struct {
+	Name      string
+	CType     string
+	DevicePtr string // string representation of uintptr
+	Size      string // string representation of uint64
 }
 
 func NewTemplateArgs() *TemplateArgs {
@@ -39,6 +49,16 @@ func (k *TemplateArgs) SetPTXCode(code string) {
 
 func (k *TemplateArgs) AddFunc(f *CuFileFunc) {
 	k.Funcs = append(k.Funcs, f)
+}
+
+func (k *TemplateArgs) SetFileName(name string) {
+	valid := func(r rune) rune {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+			return '_'
+		}
+		return r
+	}
+	k.FileName = strings.Map(valid, name)
 }
 
 // SetArgs sets the C and Go names and types of the arguments into their respective maps

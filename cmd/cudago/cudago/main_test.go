@@ -6,68 +6,6 @@ import (
 	"testing"
 )
 
-const (
-	testKernel     = `extern "C" __global__ void borders(unsigned char *origImage, int width, int height, unsigned char *gradient, int imgSize)`
-	testKernelName = "borders"
-	testKernelArgs = "unsigned char *origImage, int width, int height, unsigned char *gradient, int imgSize"
-
-	kernelArrParamTest = "__global__ void params(float A[N][N], float B[N][N], float C[N][N], float alpha, float beta, float **params)"
-)
-
-var testKernelArgsArr = [...]string{"unsigned char *origImage", "int width", "int height", "unsigned char *gradient", "int imgSize"}
-var kernelArrParamTestArgs = [...]string{"float A[N][N]", "float B[N][N]", "float C[N][N]", "float alpha", "float beta", "float **params"}
-
-func TestKernelNameRegexExtraction(t *testing.T) {
-	// Test the kernelRegex
-	name, _, err := getKernelNameAndArgs(testKernel)
-	if err != nil {
-		t.Fatal(err)
-	} else {
-		t.Log("Kernel regex compiled successfully")
-	}
-
-	if name != testKernelName {
-		t.Fatalf("Kernel regex failed to match kernel: %s, got: %s", testKernel, name)
-	} else {
-		t.Log("Kernel regex matched kernel successfully")
-	}
-
-}
-
-func TestKernelArgsRegexExtraction(t *testing.T) {
-	// Test the argsRegex
-	_, args, err := getKernelNameAndArgs(testKernel)
-	if err != nil {
-		t.Fatal(err)
-	} else {
-		t.Log("Args regex compiled successfully")
-	}
-
-	for i, arg := range args {
-		if arg != testKernelArgsArr[i] {
-			t.Fatalf("Args regex failed to match arg: %s, got: %s", testKernelArgsArr[i], arg)
-		}
-	}
-
-}
-
-func TestKernelArgsRegexExtractionArr(t *testing.T) {
-	// Test the argsRegex
-	_, args, err := getKernelNameAndArgs(kernelArrParamTest)
-	if err != nil {
-		t.Fatal(err)
-	} else {
-		t.Log("Args regex compiled successfully")
-	}
-
-	for i, arg := range args {
-		if arg != kernelArrParamTestArgs[i] {
-			t.Fatalf("Args regex failed to match arg: %s, got: %s", kernelArrParamTestArgs[i], arg)
-		}
-	}
-
-}
-
 func TestFileTemplateCreation(t *testing.T) {
 	// Test the file template creation
 
@@ -76,8 +14,8 @@ func TestFileTemplateCreation(t *testing.T) {
 	args.SetPTXCode("some ptx code")
 
 	fun := NewTemplateFunc()
-	fun.SetName(testKernelName)
-	cArgs := strings.Split(testKernelArgs, ",")
+	fun.SetName("borders")
+	cArgs := strings.Split("unsigned char *origImage, int width", ",")
 
 	for i, arg := range cArgs {
 		cArgs[i] = strings.TrimSpace(arg)
@@ -87,8 +25,10 @@ func TestFileTemplateCreation(t *testing.T) {
 	fun.IsKernel = true
 
 	args.AddFunc(fun)
+	args.Constants = map[string]string{"someConst": "int", "someOtherConst": "float"}
+	args.Variables = map[string]string{"someVar": "float", "someOtherVar": "char"}
 	file := os.Stdout
-	err := createFileFromDevTemplate(args, file)
+	err := createProdFile(args, file)
 	if err != nil {
 		t.Fatal(err)
 	} else {
