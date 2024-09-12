@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bufio"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -353,13 +355,13 @@ func Test_getKernelNameAndArgs(t *testing.T) {
 			gotNameLatest := ""
 			var gotArgsLatest []string = nil
 			err := getKernelNameAndArgs(tt.args.kernel,
-				func(name string, args []string) bool {
+				func(name string, args []string) (bool, error) {
 					gotNameCorrect = name == tt.want[index]
 					gotArgsCorrect = reflect.DeepEqual(args, tt.want1[index])
 					gotNameLatest = name
 					gotArgsLatest = args
 					index++
-					return gotNameCorrect && gotArgsCorrect // continue if both are correct
+					return gotNameCorrect && gotArgsCorrect, nil // continue if both are correct
 				})
 			if err != nil {
 				//error occured
@@ -483,70 +485,6 @@ func Test_extractNameAndType(t *testing.T) {
 		})
 	}
 }
-
-/*func Test_getKernelNameAndArgsReader(t *testing.T) {
-	type args struct {
-		reader io.Reader
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    string
-		want1   []string
-		wantErr bool
-	}{
-		{
-			name:    "ptrs and ints",
-			args:    args{strings.NewReader(`extern "C" __global__ void ćborders(unsigned char *origImage, int widthđ, int žheight, unsigned char *gradient, int imgSize)`)},
-			want:    "ćborders",
-			want1:   []string{"unsigned char *origImage", "int widthđ", "int žheight", "unsigned char *gradient", "int imgSize"},
-			wantErr: false,
-		},
-		{
-			name:    "arrParams",
-			args:    args{strings.NewReader("__global__ void paramš(float A[N][N], float B[N][N], float C[N][N], float alpha, float ßbeta, float **params)")},
-			want:    "paramš",
-			want1:   []string{"float A[N][N]", "float B[N][N]", "float C[N][N]", "float alpha", "float ßbeta", "float **params"},
-			wantErr: false,
-		},
-		{
-			name:    "noArgs",
-			args:    args{strings.NewReader("__global__ void noArgš()")},
-			want:    "noArgš",
-			want1:   nil,
-			wantErr: false,
-		},
-		{
-			name:    "noName",
-			args:    args{strings.NewReader("__global__ void ()")},
-			want:    "",
-			want1:   nil,
-			wantErr: true,
-		},
-		{
-			name:    "unsigned long long args",
-			args:    args{strings.NewReader("__global__ void uborders(unsigned lo÷ng long *origImage, unsigned long long width, unsigned long long height, unsigned long long *gradient, unsigned long long imgSize)")},
-			want:    "uborders",
-			want1:   []string{"unsigned lo÷ng long *origImage", "unsigned long long width", "unsigned long long height", "unsigned long long *gradient", "unsigned long long imgSize"},
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := getKernelNameAndArgsReader(tt.args.reader)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("getKernelNameAndArgsReader() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("getKernelNameAndArgsReader() got = %v, want %v", got, tt.want)
-			}
-			if !reflect.DeepEqual(got1, tt.want1) {
-				t.Errorf("getKernelNameAndArgsReader() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}*/
 
 const cudaFileCuTest = `
 // bitonično urejanje tabele celih števil
@@ -744,3 +682,146 @@ int main(int argc, char **argv) {
 	return 0;
 }
 `
+
+func Test_getKernelNameAndArgsFromReader(t *testing.T) {
+	type args struct {
+		origString string
+		reader     *bufio.Reader
+		extract    func(name [2]int, args [2]int) (string, []string)
+	}
+	a := func(s string) args {
+		return args{
+			origString: s,
+			reader:     bufio.NewReader(strings.NewReader(s)),
+			extract: func(name [2]int, args [2]int) (string, []string) {
+				n := s[name[0]:name[1]]
+				a := strings.Split(s[args[0]:args[1]], ",")
+				for i := range a {
+					a[i] = strings.TrimSpace(a[i])
+				}
+				if len(a) == 1 && a[0] == "" {
+					a = nil
+				}
+				return n, a
+			},
+		}
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    []string
+		want1   [][]string
+		wantErr bool
+	}{
+		{
+			name:    "ptrs and ints",
+			args:    a(`extern "C" __global__ void borders(unsigned char *origImage, int width, int height, unsigned char *gradient, int imgSize)`),
+			want:    []string{"borders"},
+			want1:   [][]string{{"unsigned char *origImage", "int width", "int height", "unsigned char *gradient", "int imgSize"}},
+			wantErr: false,
+		},
+		{
+			name:    "arrParams",
+			args:    a("__global__ void params(float A[N][N], float B[N][N], float C[N][N], float alpha, float beta, float **params)"),
+			want:    []string{"params"},
+			want1:   [][]string{{"float A[N][N]", "float B[N][N]", "float C[N][N]", "float alpha", "float beta", "float **params"}},
+			wantErr: false,
+		},
+		{
+			name:    "noArgs",
+			args:    a("__global__ void noArgs()"),
+			want:    []string{"noArgs"},
+			want1:   [][]string{nil},
+			wantErr: false,
+		},
+		{
+			name:    "noName",
+			args:    a("__global__ void ()"),
+			want:    []string{""},
+			want1:   [][]string{nil},
+			wantErr: true,
+		},
+		{
+			name:    "unsigned long long args",
+			args:    a("__global__ void uborders(unsigned long long *origImage, unsigned long long width, unsigned long long height, unsigned long long *gradient, unsigned long long imgSize)"),
+			want:    []string{"uborders"},
+			want1:   [][]string{{"unsigned long long *origImage", "unsigned long long width", "unsigned long long height", "unsigned long long *gradient", "unsigned long long imgSize"}},
+			wantErr: false,
+		},
+		{
+			name:    "line break",
+			args:    a("__global__ \nvoid\nborders\n(unsigned char *origImage,\n int width, int height,\n unsigned char *gradient, int imgSize)"),
+			want:    []string{"borders"},
+			want1:   [][]string{{"unsigned char *origImage", "int width", "int height", "unsigned char *gradient", "int imgSize"}},
+			wantErr: false,
+		},
+		{
+			name:    "multiple kernels",
+			args:    a("\n  \t__global__ void kernel1(int* a, int b)\n\n    __global__    void kernel2(unsigned int c, int d)"),
+			want:    []string{"kernel1", "kernel2"},
+			want1:   [][]string{{"int* a", "int b"}, {"unsigned int c", "int d"}},
+			wantErr: false,
+		},
+		{
+			name:    "only header",
+			args:    a("__global__ void \nkernel1(); "),
+			want:    []string{"kernel1"},
+			want1:   [][]string{nil},
+			wantErr: false,
+		},
+		{
+			name:    "with body",
+			args:    a("__global__ void kernel1() { int a = 0; }"),
+			want:    []string{"kernel1"},
+			want1:   [][]string{nil},
+			wantErr: false,
+		},
+		{
+			name:    "with body and args",
+			args:    a("__global__ void kernel1(int a) { int b = 0; }"),
+			want:    []string{"kernel1"},
+			want1:   [][]string{{"int a"}},
+			wantErr: false,
+		},
+		{
+			name: "ultimate test",
+			args: a(cudaFileCuTest),
+			want: []string{"bitonicSortStart", "bitonicSortMiddle", "bitonicSortFinish"},
+			want1: [][]string{{"int *a", "int len"}, {"int *a", "int len", "int k", "int j"},
+				{"int *a", "int len", "int k"}},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotNameCorr, gotArgsCorr, index := false, false, 0
+			gotNameLatest := ""
+			var gotArgsLatest []string = nil
+			err := getKernelNameAndArgsFromReader(tt.args.reader,
+				func(name, args [2]int) (bool, error) {
+					n, a := tt.args.extract(name, args)
+					gotNameCorr = n == tt.want[index]
+					gotArgsCorr = reflect.DeepEqual(a, tt.want1[index])
+					gotNameLatest = n
+					gotArgsLatest = a
+					index++
+					if n == "" {
+						return false, errNoMatch
+					}
+					return gotNameCorr && gotArgsCorr, nil // continue if both are correct
+				})
+			if err != nil {
+				if !tt.wantErr {
+					t.Errorf("getKernelNameAndArgsFromReader() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				return
+			}
+			if !gotNameCorr {
+				t.Errorf("getKernelNameAndArgsFromReader() gotName = %v, want %v", gotNameLatest, tt.want[0])
+			}
+			if !gotArgsCorr {
+				t.Errorf("getKernelNameAndArgsFromReader() gotArgs = %v, want %v", gotArgsLatest, tt.want1[0])
+			}
+		})
+	}
+}

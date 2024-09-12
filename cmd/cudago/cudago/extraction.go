@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"regexp"
 	"strings"
@@ -20,6 +21,10 @@ const (
 	// format: __device__ type varName
 	// format: __constant__ type constName
 	regexConstVar = `(?:extern\s+"C")?\s*__(device|constant)__\s+([^\(\);]*);+\s*`
+)
+
+var (
+	errNoMatch = errors.New("no match")
 )
 
 type definedLocationType int
@@ -55,12 +60,12 @@ var (
 )
 
 // returns the name and arguments of a kernel
-func getKernelNameAndArgs(kernel string, receiver func(name string, args []string) bool) error {
+func getKernelNameAndArgs(kernel string, receiver func(name string, args []string) (bool, error)) error {
 	//TODO: could be merged with processInput, look into named capture groups
 	kernelName := kernelRegexCompiled.FindAllStringSubmatchIndex(kernel, -1)
 
 	if kernelName == nil {
-		return errors.New("no match")
+		return errNoMatch
 	}
 
 	for _, kernelNow := range kernelName {
@@ -76,11 +81,10 @@ func getKernelNameAndArgs(kernel string, receiver func(name string, args []strin
 				splitArgs[i] = strings.TrimSpace(arg)
 			}
 		}
-		if !receiver(name, splitArgs) {
-			break
+		if cont, err := receiver(name, splitArgs); !cont {
+			return err
 		}
 	}
-
 	return nil
 }
 
@@ -88,7 +92,7 @@ func getDefinedVariables(input string, receiver func(name string, ctyp string, t
 	matches := regexConstVarCompiled.FindAllStringSubmatchIndex(input, -1)
 
 	if matches == nil {
-		return errors.New("no match")
+		return errNoMatch
 	}
 
 	//match can be __device__ or __constant__
@@ -114,7 +118,7 @@ func getDefinedVariables(input string, receiver func(name string, ctyp string, t
 func extractNameAndType(line string) (string, string, error) {
 	vars := strings.Fields(line)
 	if len(vars) <= 1 {
-		return "", "", errors.New("no match")
+		return "", "", errNoMatch
 	}
 
 	name := vars[len(vars)-1]
@@ -151,4 +155,44 @@ func extractNameAndType(line string) (string, string, error) {
 	}
 
 	return name, strings.TrimRight(typeBuilder.String(), " "), nil
+}
+
+func getKernelNameAndArgsFromReader(reader *bufio.Reader, receiver func(name [2]int, args [2]int) (bool, error)) error {
+	for i := 0; ; i++ {
+		matches := kernelRegexCompiled.FindReaderSubmatchIndex(reader)
+
+		if matches == nil {
+			if i == 0 {
+				return errNoMatch //no more kernels
+			}
+			return nil
+		}
+
+		//kernel is a slice of matches, formula [2*n:2*n+2] is the start and end of the nth match, first match is the full match
+		nameLoc := matches[2:4]
+		argsLoc := matches[4:6]
+		if cont, err := receiver([2]int(nameLoc), [2]int(argsLoc)); !cont {
+			return err
+		}
+	}
+}
+
+// test implementation
+func splitFunc(regex regexp.Regexp) bufio.SplitFunc {
+	return func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		if atEOF && len(data) == 0 {
+			//no more data, we done
+			return 0, nil, nil
+		}
+
+		if i := regex.FindIndex(data); i != nil {
+			return i[1], data[0:i[1]], nil
+		}
+
+		if atEOF {
+			return len(data), data, nil
+		}
+
+		return 0, nil, nil
+	}
 }
