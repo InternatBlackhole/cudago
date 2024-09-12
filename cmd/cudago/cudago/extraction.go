@@ -2,16 +2,14 @@ package main
 
 import (
 	"errors"
-	"io"
 	"regexp"
 	"strings"
-	"unicode/utf8"
 )
 
 const (
 	// kernelRegex is the regex to match a CUDA kernel function
 	// format: __global__ void kernelName(type1 arg1, type2 arg2, ...)
-	kernelRegex = `\s*__global__\s+void\s+([[:alpha:]_]\w*)\s*\(([^)]*)\)\s*;*`
+	kernelRegex = `(?:extern\s+"C")?\s*__global__\s+void\s+([[:alpha:]_]\w*)\s*\(([^)]*)\)\s*;*`
 
 	// constRegex is the regex to match a CUDA constant
 	//constRegex = `__constant__\s+([^\(\)]*);`
@@ -21,7 +19,7 @@ const (
 	// regexConstVar is the regex to match a CUDA constant or device variable
 	// format: __device__ type varName
 	// format: __constant__ type constName
-	regexConstVar = `\s*__(device|constant)__\s+([^\(\);]*);+\s*`
+	regexConstVar = `(?:extern\s+"C")?\s*__(device|constant)__\s+([^\(\);]*);+\s*`
 )
 
 type definedLocationType int
@@ -56,73 +54,6 @@ var (
 	regexConstVarCompiled = regexp.MustCompile(regexConstVar)
 )
 
-type RuneReader struct {
-	io.Reader
-	buf     []byte
-	bufLoc  int
-	fileLoc int
-}
-
-func NewRuneReader(r io.Reader) *RuneReader {
-	return &RuneReader{
-		Reader:  r,
-		buf:     make([]byte, 4096),
-		bufLoc:  -1,
-		fileLoc: 0,
-	}
-}
-
-// ReadRune reads a single UTF-8 encoded Unicode character and its size in bytes from the RuneReader.
-func (r *RuneReader) ReadRune() (rune, int, error) {
-	if r.bufLoc == -1 || r.bufLoc >= len(r.buf) {
-		n, err := r.Reader.Read(r.buf)
-		if err != nil {
-			return 0, 0, err
-		}
-		r.fileLoc += n
-		r.bufLoc = 0
-	}
-	//ughhh, the buffer may not caintain the full rune, fix
-	rn, size := utf8.DecodeRune(r.buf[r.bufLoc:])
-
-	//this is an edge case, will only happen if a rune is split across two buffers, at end of buffer
-	if rn == utf8.RuneError && size == 1 {
-		//invalid rune, possibly not enough bytes, read the first rune byte and read extra bytes
-		first := r.buf[r.bufLoc]
-		var n, arrSize int
-		var err error
-		var arr []byte
-
-		if first <= 0b01111111 { //this is ascii, should never happen
-			panic("ascii rune, should never be here")
-		} else if first >= 0b11000000 && first <= 0b11011111 { //2 byte rune
-			//read the next byte
-			arrSize = 2
-		} else if /*first >= 0b11100000 &&*/ first <= 0b11101111 { //3 byte rune
-			//read the next two bytes
-			arrSize = 3
-		} else if /*first >= 0b11110000 &&*/ first <= 0b11110111 { //4 byte rune
-			//read the next three bytes
-			arrSize = 4
-		} else {
-			return 0, 0, errors.New("invalid utf8 rune")
-		}
-		arr = make([]byte, arrSize)
-		arr[0] = first
-		n, err = r.Reader.Read(arr[1:])
-		if err != nil {
-			return 0, 0, err
-		}
-		rn, size = utf8.DecodeRune(arr)
-		if rn == utf8.RuneError && size == 1 {
-			panic("invalid utf8 rune decode after trying to recover")
-		}
-		r.fileLoc += n
-	}
-	r.bufLoc += size
-	return rn, size, nil
-}
-
 // returns the name and arguments of a kernel
 func getKernelNameAndArgs(kernel string, receiver func(name string, args []string) bool) error {
 	//TODO: could be merged with processInput, look into named capture groups
@@ -152,16 +83,6 @@ func getKernelNameAndArgs(kernel string, receiver func(name string, args []strin
 
 	return nil
 }
-
-// returns the name and type of a constant
-/*func getConstNameAndType(constant string, receiver func(name string, typ string) bool) error {
-	return processInput(constant, constRegexCompiled, receiver)
-}*/
-
-// returns the name and type of a variable
-/*func getVarNameAndType(variable string, receiver func(name string, typ string) bool) error {
-	return processInput(variable, varRegexCompiled, receiver)
-}*/
 
 func getDefinedVariables(input string, receiver func(name string, ctyp string, typ definedLocationType) bool) error {
 	matches := regexConstVarCompiled.FindAllStringSubmatchIndex(input, -1)

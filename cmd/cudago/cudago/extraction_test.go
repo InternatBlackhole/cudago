@@ -1,9 +1,7 @@
 package main
 
 import (
-	"io"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -213,6 +211,14 @@ func Test_getDefinedVariables(t *testing.T) {
 			wantType:  []definedLocationType{TYPE_DEVICE_CONST, TYPE_DEVICE_VAR},
 			wantErr:   false,
 		},
+		{
+			name:      "ultimate test",
+			args:      args{cudaFileCuTest},
+			wantName:  []string{"randomConst", "randomLongVar", "random_Const"},
+			wantCType: []string{"int", "unsigned long long long *", "uint16_t"},
+			wantType:  []definedLocationType{TYPE_DEVICE_CONST, TYPE_DEVICE_VAR, TYPE_DEVICE_CONST},
+			wantErr:   false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -329,6 +335,14 @@ func Test_getKernelNameAndArgs(t *testing.T) {
 			args:    args{"__global__ void kernel1(int a) { int b = 0; }"},
 			want:    []string{"kernel1"},
 			want1:   [][]string{{"int a"}},
+			wantErr: false,
+		},
+		{
+			name: "ultimate test",
+			args: args{cudaFileCuTest},
+			want: []string{"bitonicSortStart", "bitonicSortMiddle", "bitonicSortFinish"},
+			want1: [][]string{{"int *a", "int len"}, {"int *a", "int len", "int k", "int j"},
+				{"int *a", "int len", "int k"}},
 			wantErr: false,
 		},
 	}
@@ -534,84 +548,199 @@ func Test_extractNameAndType(t *testing.T) {
 	}
 }*/
 
-func TestRuneReader_ReadRune(t *testing.T) {
-	type fields struct {
-		Reader  io.Reader
-		buf     []byte
-		bufLoc  int
-		fileLoc int
-	}
-	tests := []struct {
-		name    string
-		fields  fields
-		want    rune
-		want1   int
-		wantErr bool
-	}{
-		{
-			name: "1 byte rune",
-			fields: fields{
-				Reader: strings.NewReader("a"),
-				buf:    make([]byte, 1),
-				bufLoc: -1,
-			},
-			want:    'a',
-			want1:   1,
-			wantErr: false,
-		},
-		{
-			name: "2 byte rune",
-			fields: fields{
-				Reader: strings.NewReader("Ć"),
-				buf:    make([]byte, 2),
-				bufLoc: -1,
-			},
-			want:    'Ć',
-			want1:   2,
-			wantErr: false,
-		},
-		{
-			name: "3 byte rune",
-			fields: fields{
-				Reader: strings.NewReader("₿"),
-				buf:    make([]byte, 3),
-				bufLoc: -1,
-			},
-			want:    '₿',
-			want1:   3,
-			wantErr: false,
-		},
-		{
-			name: "4 byte rune",
-			fields: fields{
-				Reader: strings.NewReader("𐲕"),
-				buf:    make([]byte, 4),
-				bufLoc: -1,
-			},
-			want:    '𐲕',
-			want1:   4,
-			wantErr: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := &RuneReader{
-				Reader:  tt.fields.Reader,
-				buf:     tt.fields.buf,
-				bufLoc:  tt.fields.bufLoc,
-				fileLoc: tt.fields.fileLoc,
-			}
-			got, got1, err := r.ReadRune()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("RuneReader.ReadRune() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("RuneReader.ReadRune() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("RuneReader.ReadRune() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
+const cudaFileCuTest = `
+// bitonično urejanje tabele celih števil
+// 		argumenta: število niti v bloku in velikost tabele
+//		elementi tabele so inicializirani naključno
+// s sinhornizacijo niti v bloku se v največji možni meri izognemo globalni sinhornizaciji
+// bitonicSort je zdaj funkcija na napravi, ki jo kličejo trije ščepci
+// bitonicSortStart in bitonicSortFinish urejata v skupnem pomnilniku
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <time.h>
+#include "cuda.h"
+#include "helper_cuda.h"
+
+__device__ void bitonicSort(int *a, int len, int k, int j) {
+	int gid = blockIdx.x * blockDim.x + threadIdx.x;    
+    if (gid < len/2) {
+		int i1 = 2*j * (int)(gid / j) + (gid % j);	// prvi element
+		int i2 = i1 ^ j;							// drugi element
+		int dec = i1 & k;							// smer urejanja (padajoče: dec != 0)
+		if ((dec == 0 && a[i1] > a[i2]) || (dec != 0 && a[i1] < a[i2])) {
+			int temp = a[i1];
+			a[i1] = a[i2];
+			a[i2] = temp;
+		}
 	}
 }
+
+__device__ void bitonicSortShared(int *as, int len, int k, int j) {
+	int gid = blockIdx.x * blockDim.x + threadIdx.x;    
+    if (gid < len/2) {
+		int i1 = 2*j * (int)(gid / j) + (gid % j);	// prvi element
+		int i2 = i1 ^ j;							// drugi element
+		int dec = i1 & k;							// smer urejanja (padajoče: dec != 0)
+		int i1s = i1 % blockDim.x;
+		int i2s = i2 % blockDim.x;
+		if ((dec == 0 && as[i1s] > as[i2s]) || (dec != 0 && as[i1s] < as[i2s])) {
+			int temp = as[i1s];
+			as[i1s] = as[i2s];
+			as[i2s] = temp;
+		}
+	}
+}
+
+__device__ void copyToShared(int *as, int *a) {
+	int i1Start = 2 * blockDim.x * blockIdx.x;
+	as[threadIdx.x] = a[i1Start + threadIdx.x];	
+	as[blockDim.x + threadIdx.x] = a[i1Start + blockDim.x + threadIdx.x];
+}
+
+__device__ void copyFromShared(int *a, int *as) {int *a, int len, int k, int j
+	int i1Start = 2 * blockDim.x * blockIdx.x;
+	a[i1Start + threadIdx.x] = as[threadIdx.x];	
+	a[i1Start + blockDim.x + threadIdx.x] = as[blockDim.x + threadIdx.x];
+}
+
+extern "C" __global__ void bitonicSortStart(int *a, int len) {
+	extern __shared__ int as[];
+	copyToShared(as, a);
+	for (int k = 2; k <= 2 * blockDim.x; k <<= 1) 
+		for (int j = k/2; j > 0; j >>= 1) {
+			bitonicSortShared(as, len, k, j);
+			__syncthreads();
+	}
+	copyFromShared(a, as);
+}
+
+extern "C" __global__ void bitonicSortMiddle(int *a, int len, int k, int j) {
+	bitonicSort(a, len, k, j);
+}
+
+__global__ void bitonicSortFinish(int *a, int len, int k) {
+	extern __shared__ int as[];
+	copyToShared(as, a);
+	for (int j = 2*blockDim.x; j > 0; j >>= 1) {
+		bitonicSortShared(as, len, k, j);
+		__syncthreads();
+	}
+	copyFromShared(a, as);
+}
+
+__constant__ 
+int randomConst;
+
+__device__ unsigned long long
+ long * randomLongVar;
+
+
+__constant__ uint16_t random_Const;
+
+
+int main(int argc, char **argv) {
+	// preberemo argumente iz ukazne vrstice
+	int numThreads = 0;
+	int tableLength = 0;
+	if (argc == 3) {
+		numThreads = atoi(argv[1]);
+		tableLength = atoi(argv[2]);
+	}
+	if (numThreads <= 0 || tableLength <= 0 || ceil(log2(tableLength)) != floor(log2(tableLength))) {
+		printf("usage:\n\t%s <number of block threads> <table length (power of 2)>\n", argv[0]);
+		exit(EXIT_FAILURE);
+	}
+
+	// določimo potrebno število blokov niti (rabimo toliko niti, kot je parov elemntov)
+	int numBlocks = (tableLength/2 - 1) / numThreads + 1;
+
+	// rezerviramo pomnilnik na gostitelju
+	int *a = (int *)malloc(tableLength * sizeof(int));
+	int *ha = (int *)malloc(tableLength * sizeof(int));
+	
+	// rezerviramo pomnilnik na napravi
+	int *da;
+	checkCudaErrors(cudaMalloc((void**)&da, tableLength * sizeof(int)));
+
+	// nastavimo vrednosti tabel a in ha na gostitelju
+	srand(time(NULL));
+	for (int i = 0; i < tableLength; i++) {
+        a[i] = rand();
+		ha[i] = a[i];
+    }
+
+	// merjenje časa na napravi - začetek
+	struct timespec startDevice, stopDevice;
+	clock_gettime(CLOCK_MONOTONIC, &startDevice);
+
+	// prenesemo tabelo a iz gostitelja na napravo
+	checkCudaErrors(cudaMemcpy(da, ha, tableLength * sizeof(int), cudaMemcpyHostToDevice));
+
+	// zaženemo kodo na napravi
+	dim3 gridSize(numBlocks, 1, 1);
+	dim3 blockSize(numThreads, 1, 1);
+
+	bitonicSortStart<<<gridSize, blockSize, 2*blockSize.x*sizeof(int)>>>(da, tableLength);			// k = 2 ... 2 * blockSize.x
+    for (int k = 4 * blockSize.x; k <= tableLength; k <<= 1) {										// k = 4 * blockSize ... tableLength
+        for (int j = k/2; j > 2 * blockSize.x; j >>= 1) {											//   j = k/2 ... 2 * blockSize.x
+        	bitonicSortMiddle<<<gridSize, blockSize, 2*blockSize.x*sizeof(int)>>>(da, tableLength, k, j);
+	        checkCudaErrors(cudaGetLastError());
+        }
+		bitonicSortFinish<<<gridSize, blockSize, 2*blockSize.x*sizeof(int)>>>(da, tableLength, k);	//   j = 2 * blockSize.x ... 1
+	}
+
+	// počakamo, da vse niti na napravi zaključijo
+	checkCudaErrors(cudaDeviceSynchronize());
+
+	// tabelo a prekopiramo iz naprave na gostitelja
+	checkCudaErrors(cudaMemcpy(ha, da, tableLength * sizeof(int), cudaMemcpyDeviceToHost));
+
+	// merjenje časa na napravi - konec
+	clock_gettime(CLOCK_MONOTONIC, &stopDevice);
+	double timeDevice = (stopDevice.tv_sec - startDevice.tv_sec) * 1e3 + (stopDevice.tv_nsec - startDevice.tv_nsec) / 1e6;
+
+	// urejanje na gostitelju
+	struct timespec startHost, stopHost;
+	clock_gettime(CLOCK_MONOTONIC, &startHost);
+
+    int i2, dec, temp;
+    for (int k = 2; k <= tableLength; k <<= 1) 
+        for (int j = k/2; j > 0; j >>= 1)
+            for (int i1 = 0; i1 < tableLength; i1++) {
+                i2 = i1 ^ j;
+                dec = i1 & k;
+                if (i2 > i1)
+                    if ((dec == 0 && a[i1] > a[i2]) || (dec != 0 && a[i1] < a[i2])) {
+                        temp = a[i1];
+                        a[i1] = a[i2];
+                        a[i2] = temp;
+                    }
+            }
+
+	clock_gettime(CLOCK_MONOTONIC, &stopHost);
+	double timeHost = (stopHost.tv_sec - startHost.tv_sec) * 1e3 + (stopHost.tv_nsec - startHost.tv_nsec) / 1e6;
+
+    // preverimo rešitev
+    int okDevice = 1;
+    int okHost = 1;
+    int previousDevice = ha[0];
+    int previousHost = a[0];
+    for (int i = 1; i < tableLength; i++) {
+        okDevice &= (previousDevice <= ha[i]);
+        okHost &= (previousHost <= a[i]);
+    }
+    printf("Device: %s (%lf ms)\n", okDevice ? "correct" : "wrong", timeDevice);
+    printf("Host  : %s (%lf ms)\n", okHost ? "correct" : "wrong", timeHost);
+
+	// sprostimo pomnilnik na napravi
+	checkCudaErrors(cudaFree(da));
+
+	// sprostimo pomnilnik na gostitelju
+	free(a);
+	free(ha);
+
+	return 0;
+}
+`
