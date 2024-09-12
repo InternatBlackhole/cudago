@@ -35,7 +35,12 @@ func CreateProgram(srcCode string, name string, headers []Header) (*Program, err
 		defer C.free(unsafe.Pointer(cHeaders[i]))
 		defer C.free(unsafe.Pointer(cIncludeNames[i]))
 	}
-	err := C.nvrtcCreateProgram(&prog, cSrc, cName, C.int(len(headers)), &cHeaders[0], &cIncludeNames[0])
+	var heads, includes **C.char = nil, nil
+	if len(headers) > 0 {
+		heads = &cHeaders[0]
+		includes = &cIncludeNames[0]
+	}
+	err := C.nvrtcCreateProgram(&prog, cSrc, cName, C.int(len(headers)), heads, includes)
 	if err != C.NVRTC_SUCCESS {
 		return nil, NewNvRtcError(uint32(err))
 	}
@@ -55,12 +60,19 @@ Compiles the program with the specified options.
 Options are the same as the options that can be passed to nvcc (and gcc).
 */
 func (p *Program) Compile(options []string) error {
+	if options == nil {
+		options = make([]string, 0)
+	}
 	cOptions := make([]*C.char, len(options))
 	for i, option := range options {
 		cOptions[i] = C.CString(option)
 		defer C.free(unsafe.Pointer(cOptions[i]))
 	}
-	err := C.nvrtcCompileProgram(p.prog, C.int(len(options)), &cOptions[0])
+	var opts **C.char = nil
+	if len(options) > 0 {
+		opts = &cOptions[0]
+	}
+	err := C.nvrtcCompileProgram(p.prog, C.int(len(options)), opts)
 	if err != C.NVRTC_SUCCESS {
 		return NewNvRtcError(uint32(err))
 	}
@@ -103,5 +115,5 @@ func (p *Program) GetPTX() ([]byte, error) {
 		return nil, NewNvRtcError(uint32(err))
 	}
 
-	return C.GoBytes(data, C.int(size)), nil
+	return C.GoBytes(data, C.int(size-1)), nil // -1 to remove the null terminator
 }
