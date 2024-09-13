@@ -117,3 +117,81 @@ func (p *Program) GetPTX() ([]byte, error) {
 
 	return C.GoBytes(data, C.int(size-1)), nil // -1 to remove the null terminator
 }
+
+func (p *Program) GetCubin() ([]byte, error) {
+	var size C.size_t
+	err := C.nvrtcGetCUBINSize(p.prog, &size)
+	if err != C.NVRTC_SUCCESS {
+		return nil, NewNvRtcError(uint32(err))
+	}
+
+	data := C.malloc(size * C.sizeof_char)
+	defer C.free(unsafe.Pointer(data))
+
+	err = C.nvrtcGetCUBIN(p.prog, (*C.char)(data))
+	if err != C.NVRTC_SUCCESS {
+		return nil, NewNvRtcError(uint32(err))
+	}
+
+	return C.GoBytes(data, C.int(size)), nil
+}
+
+func (p *Program) GetLTOIR() ([]byte, error) {
+	var size C.size_t
+	err := C.nvrtcGetLTOIRSize(p.prog, &size)
+	if err != C.NVRTC_SUCCESS {
+		return nil, NewNvRtcError(uint32(err))
+	}
+
+	data := C.malloc(size * C.sizeof_char)
+	defer C.free(unsafe.Pointer(data))
+
+	err = C.nvrtcGetLTOIR(p.prog, (*C.char)(data))
+	if err != C.NVRTC_SUCCESS {
+		return nil, NewNvRtcError(uint32(err))
+	}
+
+	return C.GoBytes(data, C.int(size)), nil
+}
+
+func (p *Program) GetOptiXIR() ([]byte, error) {
+	var size C.size_t
+	err := C.nvrtcGetOptiXIRSize(p.prog, &size)
+	if err != C.NVRTC_SUCCESS {
+		return nil, NewNvRtcError(uint32(err))
+	}
+
+	data := C.malloc(size * C.sizeof_char)
+	defer C.free(unsafe.Pointer(data))
+
+	err = C.nvrtcGetOptiXIR(p.prog, (*C.char)(data))
+	if err != C.NVRTC_SUCCESS {
+		return nil, NewNvRtcError(uint32(err))
+	}
+
+	return C.GoBytes(data, C.int(size)), nil
+}
+
+func (p *Program) AddNameExpression(name string) error {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	err := C.nvrtcAddNameExpression(p.prog, cName)
+	if err != C.NVRTC_SUCCESS {
+		return NewNvRtcError(uint32(err))
+	}
+	return nil
+}
+
+func (p *Program) GetLoweredName(name string) (string, error) {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+	var loweredName *C.char
+	err := C.nvrtcGetLoweredName(p.prog, cName, &loweredName)
+	if err != C.NVRTC_SUCCESS {
+		return "", NewNvRtcError(uint32(err))
+	}
+
+	return C.GoString(loweredName), nil
+}
+
+//TODO: look into nvrtcGetTypeName
