@@ -12,6 +12,10 @@ kliči program samo enkrat in vsakič prevedi for dev (želi da je klicanje prog
 
 v wrapper bo treba dati cel ta cuda package, ki ga bom spisal
 
-OBVEZNA UPORABA `extern "C"`
+OBVEZNA UPORABA `extern "C"`, nobena funkcija ali spremenljivka ki vseuje __global__, __device__, __constant__ ne sme biti v komentarjih
 
 en gpu lahko v enem cuda context izvaja vec kernels hkrati (https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#concurrent-kernel-execution)
+
+https://github.com/alecthomas/participle poglej za parser generator
+
+extract stuff from PTX file?
