@@ -2,9 +2,9 @@ package cuda
 
 import "C"
 
-type CudaLinkState struct {
+/*type LinkState struct {
 	state C.CUlinkState
-}
+}*/
 
 //TODO: Implement if needed
 /*
