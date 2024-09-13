@@ -46,6 +46,8 @@ func mainWithCode() int {
 		return 1
 	}
 
+	packageName = strings.Map(validMap, packageName)
+
 	filesToCompile = flag.Args()
 
 	if len(filesToCompile) == 0 {
@@ -149,13 +151,15 @@ func templateArgsFromFile(file *os.File) *TemplateArgs {
 		panic(err)
 	}
 
-	return &TemplateArgs{
-		Package:   packageName,
+	args := &TemplateArgs{
+		//Package:   packageName,
 		Funcs:     kernels,
 		Constants: consts,
 		Variables: vars,
 		PTXCode:   string(ptx),
 	}
+	args.SetPackage(packageName)
+	return args
 }
 
 func usage() {

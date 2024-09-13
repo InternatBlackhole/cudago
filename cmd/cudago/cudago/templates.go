@@ -67,16 +67,16 @@ import (
 	"unsafe"
 	"errors"
 )
-
+{{$errNotInitLib := namespaced "errNotInitLib" .FileName}}
 var (
-	errNotInitLib_{{.FileName}} = errors.New("library {{.FileName}} not initialized")
+	{{$errNotInitLib}} = errors.New("library {{.FileName}} not initialized")
 )
-{{$lib := printf "LoadedLib_%s" .FileName}}
+{{$lib := namespaced "LoadedLib" .FileName}}
 var {{$lib}} *cuda.Library = nil
-
-var kernCache_{{.FileName}} = make(map[string]*cuda.Kernel) //cache for the kernels: RawName -> CudaKernel
-
-func InitLibrary_{{.FileName}}() error {
+{{$kernCache := namespaced "kernCache" .FileName}}
+var {{$kernCache}} = make(map[string]*cuda.Kernel) //cache for the kernels: RawName -> CudaKernel
+{{$init := namespaced "InitLibrary" .FileName}}
+func {{$init}}() error {
 	if {{$lib}} == nil {
 		//load the kernel from PTX/cubin code
 		var err error
@@ -85,25 +85,26 @@ func InitLibrary_{{.FileName}}() error {
 	}
 	return nil
 }
-
-func CloseLibrary_{{.FileName}}() error {
+{{$close := namespaced "CloseLibrary" .FileName}}
+func {{$close}}() error {
 	if {{$lib}} == nil {
 		return errNotInitLib_{{.FileName}}
 	}
 	return {{$lib}}.Unload()
 }
-{{$getKernel := printf "getKernel_%s" .FileName}}
+{{$getKernel := namespaced "getKernel" .FileName}}
 func {{$getKernel}}(kernelName string) (*cuda.Kernel, error) {
 	if {{$lib}} == nil {
-		return nil, errNotInitLib_{{.FileName}}
+		return nil, {{$errNotInitLib}}
 	}
-	kern := kernCache_{{.FileName}}[kernelName]
+	kern := {{$kernCache}}[kernelName]
+	var err error
 	if kern == nil {
-		kern, err := {{$lib}}.GetKernel(kernelName)
+		kern, err = {{$lib}}.GetKernel(kernelName)
 		if err != nil {
 			return nil, err
 		}
-		kernCache_{{.FileName}}[kernelName] = kern
+		{{$kernCache}}[kernelName] = kern
 	}
 	return kern, nil
 }
@@ -111,7 +112,7 @@ func {{$getKernel}}(kernelName string) (*cuda.Kernel, error) {
 {{range .Funcs}}{{ $argsName := .Name | lower }}
 type {{$argsName}}Args struct {
     //sync.Mutex
-{{range $argName, $argType := .GoArgs }}    {{$argName}} {{$argType}}
+{{range .GoArgs }}    {{.Name}} {{.Type}}
 {{end}}
 }{{end}}
 
@@ -138,11 +139,11 @@ func {{.Name}}(grid, block cuda.Dim3, {{argPrint .GoArgs ", "}}) error {
 	if err != nil {
 		return err
 	}
-	/*params := {{$argsName}}Args{
-	{{range $argName, $argType := .GoArgs}}    {{$argName}}: {{$argName}}
+	params := {{$argsName}}Args{
+	{{range .GoArgs}}    {{.Name}}: {{.Name}},
 	{{end}}
-	}*/
-	return kern.Launch(grid, block, {{passArgsPtrs .GoArgs}})
+	}
+	return kern.Launch(grid, block, {{passArgsPtrs .GoArgs "params"}})
 }
 
 //One with stream and shared mem should be here, or a separate function for each
@@ -157,8 +158,11 @@ var templateFunctions = template.FuncMap{
 	"title":    func(s string) string { return string(unicode.ToUpper(rune(s[0]))) + s[1:] },
 	"argPrint": argPrint,
 	"passArgs": passArgs,
-	"passArgsPtrs": func(args map[string]string) string {
-		return passArgs(args, "unsafe.Pointer(&%s)")
+	"passArgsPtrs": func(args []Arg, from string) string {
+		return passArgs(args, fmt.Sprintf("unsafe.Pointer(&%s.%%s)", from))
+	},
+	"namespaced": func(name, namespace string) string {
+		return name + "_" + namespace
 	},
 }
 
@@ -207,11 +211,11 @@ func createUtilityFile(kernel *TemplateArgs, outFile *os.File) error {
 	return nil
 }
 
-func argPrint(args map[string]string, sep string) string {
+func argPrint(args []Arg, sep string) string {
 	var builder strings.Builder
 	var i int = 0
-	for name, gotype := range args {
-		fmt.Fprintf(&builder, "%s %s", name, gotype)
+	for _, gotype := range args {
+		fmt.Fprintf(&builder, "%s %s", gotype.Name, gotype.Type)
 		if i != len(args)-1 {
 			builder.WriteString(sep)
 		}
@@ -220,12 +224,12 @@ func argPrint(args map[string]string, sep string) string {
 	return builder.String()
 }
 
-func passArgs(args map[string]string, pattern string) string {
+func passArgs(args []Arg, pattern string) string {
 	var builder strings.Builder
 	var i int = 0
-	for name := range args {
+	for _, arg := range args {
 		//fmt.Fprintf(&builder, pattern, name)
-		builder.WriteString(passArg(name, pattern))
+		builder.WriteString(passArg(arg.Name, pattern))
 		if i != len(args)-1 {
 			builder.WriteString(", ")
 		}

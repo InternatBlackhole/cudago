@@ -14,11 +14,16 @@ type TemplateArgs struct {
 	PTXCode   string
 }
 
+type Arg struct {
+	Name string
+	Type string
+}
+
 type CuFileFunc struct {
-	Name     string            // Exported name
-	RawName  string            // Original name
-	GoArgs   map[string]string // arg name -> type
-	CArgs    map[string]string // arg name -> type
+	Name     string // Exported name
+	RawName  string // Original name
+	GoArgs   []Arg  // Go name -> Go type; arrays preserve ordering
+	CArgs    []Arg  // C name -> C type; arrays preseve ordering, discards const, unsigned, and pointers
 	IsKernel bool
 }
 
@@ -52,20 +57,18 @@ func (k *TemplateArgs) AddFunc(f *CuFileFunc) {
 }
 
 func (k *TemplateArgs) SetFileName(name string) {
-	valid := func(r rune) rune {
-		if !unicode.IsLetter(r) && !unicode.IsDigit(r) {
-			return '_'
-		}
-		return r
-	}
-	k.FileName = strings.Map(valid, name)
+	k.FileName = strings.Trim(strings.Map(validMap, name), "_")
+}
+
+func (k *TemplateArgs) SetPackage(name string) {
+	k.Package = strings.Trim(strings.Map(validMap, name), "_")
 }
 
 // SetArgs sets the C and Go names and types of the arguments into their respective maps
 func (k *CuFileFunc) SetArgs(args []string) {
-	k.CArgs = make(map[string]string, len(args))
-	k.GoArgs = make(map[string]string, len(args))
-	for _, arg := range args {
+	k.CArgs = make([]Arg, len(args))
+	k.GoArgs = make([]Arg, len(args))
+	for i, arg := range args {
 		isUnsigned := false
 		split := strings.Split(arg, " ")
 
@@ -91,19 +94,26 @@ func (k *CuFileFunc) SetArgs(args []string) {
 		} else if isUnsigned {
 			targ = "u" + targ
 		}
-
-		k.GoArgs[cArgName] = targ
-		k.CArgs[cArgName] = cArgType
+		//TODO: CArgs.Type should be the original type witha all modifiers (pointer, const, unsigned)
+		k.GoArgs[i] = Arg{cArgName, targ}
+		k.CArgs[i] = Arg{cArgName, cArgType}
 	}
 }
 
+func validMap(r rune) rune {
+	if (!unicode.IsLetter(r) && !unicode.IsDigit(r)) || unicode.IsSpace(r) {
+		return '_'
+	}
+	return r
+}
+
 const unknownGoType = "unsafe.Pointer"
-const goPointerType = "unsafe.Pointer"
+const goPointerType = "uintptr" // reserve: unsafe.Pointer
 
 // key is the C type, value is the Go type
 var typeMap = map[string]string{
 	"int":    "int",
-	"char":   "int8",
+	"char":   "byte",
 	"short":  "int16",
 	"long":   "int64",
 	"float":  "float32",
