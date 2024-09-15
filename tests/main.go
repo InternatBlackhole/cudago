@@ -6,12 +6,14 @@ import (
 	"image/jpeg"
 	"math"
 	"os"
+	"runtime"
 
 	"github.com/InternatBlackhole/cudago/cuda"
 	"github.com/InternatBlackhole/cudago/tests/cuda_stuff"
 )
 
 func main() {
+	runtime.LockOSThread()
 	var err error
 	err = cuda.Init()
 	panicErr(err)
@@ -38,6 +40,9 @@ func main() {
 	panicErr(err)
 
 	img := rgbaToGray(origImage)
+	arr, err := cuda.RegisterAllocationHost(img.Pix, cuda.CU_MEMHOSTREGISTER_READ_ONLY)
+	panicErr(err)
+	defer arr.Free()
 
 	imgSize := img.Bounds().Size()
 	size := uint64(imgSize.X * imgSize.Y)
@@ -68,7 +73,9 @@ func main() {
 	panicErr(err)
 	defer end.Destroy()
 
-	finalImg := make([]byte, size)
+	//finalImg := make([]byte, size)
+	finalImg, err := cuda.HostMemAlloc(size)
+	panicErr(err)
 
 	err = start.Record(nil)
 	panicErr(err)
@@ -79,7 +86,8 @@ func main() {
 	err = cuda_stuff.Borders(dimGrid, dimBlock, grayImg.Ptr, imgSize.X, imgSize.Y, grad.Ptr, int(size))
 	panicErr(err)
 
-	err = grad.MemcpyFromDevice(finalImg)
+	//err = grad.MemcpyFromDevice(finalImg)
+	err = grad.MemcpyFromDevice(finalImg.AsSlice())
 	panicErr(err)
 
 	err = end.Record(nil)
@@ -98,7 +106,8 @@ func main() {
 	defer outFile.Close()
 
 	final := image.NewGray(img.Bounds())
-	final.Pix = finalImg
+	final.Pix = finalImg.AsSlice()
+	//final.Pix = finalImg
 
 	err = jpeg.Encode(outFile, final, nil)
 	panicErr(err)
