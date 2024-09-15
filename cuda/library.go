@@ -3,7 +3,6 @@ package cuda
 //#include <cuda.h>
 import "C"
 import (
-	"errors"
 	"unsafe"
 )
 
@@ -24,89 +23,38 @@ type LibraryOption struct {
 	Value  uint32
 }
 
-func LoadLibraryFromPath(path string, jit_options []JitOption, library_options []LibraryOption) (*Library, error) {
-	fun := func(jitOpts unsafe.Pointer, jitOptsVals *unsafe.Pointer, numJitOpt C.uint,
-		libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*Library, error) {
-		pathC := C.CString(path)
-		defer C.free(unsafe.Pointer(pathC))
-		var lib C.CUlibrary
-		stat := C.cuLibraryLoadFromFile(&lib, pathC, (*C.CUjit_option)(jitOpts), jitOptsVals, numJitOpt,
-			(*C.CUlibraryOption)(libOpts), libOptsVals, libOptNum)
+func LoadLibraryFromPath(path string, jit_options []JitOption, library_options []LibraryOption) (*Library, Result) {
+	pathC := C.CString(path)
+	defer C.free(unsafe.Pointer(pathC))
 
-		if stat != C.CUDA_SUCCESS {
-			return nil, NewCudaError(uint32(stat))
-		}
-		return &Library{lib}, nil
+	var lib C.CUlibrary
+	_, _, jitOptsAddr, jitValsAddr := parseJitOptions(jit_options)
+	_, _, libOptsAddr, libValsAddr := parseLibraryOptions(library_options)
+	stat := C.cuLibraryLoadFromFile(&lib, pathC, jitOptsAddr, jitValsAddr, C.uint(len(jit_options)),
+		libOptsAddr, libValsAddr, C.uint(len(library_options)))
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
 	}
-
-	return internalLoad(jit_options, library_options, fun)
+	return &Library{lib}, nil
 }
 
-func LoadLibraryData(data []byte, jit_options []JitOption, library_options []LibraryOption) (*Library, error) {
+func LoadLibraryData(data []byte, jit_options []JitOption, library_options []LibraryOption) (*Library, Result) {
 	if len(data) == 0 {
-		return nil, errors.New("data is empty")
+		return nil, ErrDataIsEmtpy
 	}
 
-	fun := func(jitOpts unsafe.Pointer, jitOptsVals *unsafe.Pointer, numJitOpt C.uint,
-		libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*Library, error) {
-		var lib C.CUlibrary
-		stat := C.cuLibraryLoadData(&lib, unsafe.Pointer(&data[0]), (*C.CUjit_option)(jitOpts), jitOptsVals, numJitOpt,
-			(*C.CUlibraryOption)(libOpts), libOptsVals, libOptNum)
-
-		if stat != C.CUDA_SUCCESS {
-			return nil, NewCudaError(uint32(stat))
-		}
-		return &Library{lib}, nil
+	var lib C.CUlibrary
+	_, _, jitOptsAddr, jitValsAddr := parseJitOptions(jit_options)
+	_, _, libOptsAddr, libValsAddr := parseLibraryOptions(library_options)
+	stat := C.cuLibraryLoadData(&lib, unsafe.Pointer(&data[0]), jitOptsAddr, jitValsAddr, C.uint(len(jit_options)),
+		libOptsAddr, libValsAddr, C.uint(len(library_options)))
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
 	}
-
-	return internalLoad(jit_options, library_options, fun)
+	return &Library{lib}, nil
 }
 
-type internalFunc func(jitOpts unsafe.Pointer, jitOptsVals *unsafe.Pointer, numJitOpt C.uint,
-	libOpts unsafe.Pointer, libOptsVals *unsafe.Pointer, libOptNum C.uint) (*Library, error)
-
-func internalLoad(jit_options []JitOption, library_options []LibraryOption, fun internalFunc) (*Library, error) {
-	var jitOptions unsafe.Pointer = nil
-	var jitValues unsafe.Pointer = nil
-	var libraryOptions unsafe.Pointer = nil
-	var libraryValues unsafe.Pointer = nil
-
-	if len(jit_options) > 0 {
-		jitOptions = C.malloc(C.size_t(len(jit_options)) * C.size_t(unsafe.Sizeof(C.CUjit_option(0))))
-		defer C.free(jitOptions)
-
-		for i, opt := range jit_options {
-			*(*C.CUjit_option)(unsafe.Pointer(uintptr(jitOptions) + uintptr(i)*unsafe.Sizeof(C.CUjit_option(0)))) = C.CUjit_option(opt.Option)
-		}
-
-		jitValues = C.malloc(C.size_t(len(jit_options)) * C.size_t(unsafe.Sizeof(C.uint(0))))
-		defer C.free(jitValues)
-
-		for i, opt := range jit_options {
-			*(*C.uint)(unsafe.Pointer(uintptr(jitValues) + uintptr(i)*unsafe.Sizeof(C.uint(0)))) = C.uint(opt.Value)
-		}
-	}
-
-	if len(library_options) > 0 {
-		libraryOptions := C.malloc(C.size_t(len(library_options)) * C.size_t(unsafe.Sizeof(C.CUlibraryOption(0))))
-		defer C.free(libraryOptions)
-
-		for i, opt := range library_options {
-			*(*C.CUlibraryOption)(unsafe.Pointer(uintptr(libraryOptions) + uintptr(i)*unsafe.Sizeof(C.CUlibraryOption(0)))) = C.CUlibraryOption(opt.Option)
-		}
-
-		libraryValues := C.malloc(C.size_t(len(library_options)) * C.size_t(unsafe.Sizeof(C.uint(0))))
-		defer C.free(libraryValues)
-
-		for i, opt := range library_options {
-			*(*C.uint)(unsafe.Pointer(uintptr(libraryValues) + uintptr(i)*unsafe.Sizeof(C.uint(0)))) = C.uint(opt.Value)
-		}
-	}
-
-	return fun(jitOptions, &jitValues, C.uint(len(jit_options)), libraryOptions, &libraryValues, C.uint(len(library_options)))
-}
-
-func (lib *Library) Unload() error {
+func (lib *Library) Unload() Result {
 	stat := C.cuLibraryUnload(lib.lib)
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
@@ -114,7 +62,7 @@ func (lib *Library) Unload() error {
 	return nil
 }
 
-func (lib *Library) GetKernel(name string) (*Kernel, error) {
+func (lib *Library) GetKernel(name string) (*Kernel, Result) {
 	nameC := C.CString(name)
 	defer C.free(unsafe.Pointer(nameC))
 	var kernel C.CUkernel
@@ -125,7 +73,35 @@ func (lib *Library) GetKernel(name string) (*Kernel, error) {
 	return &Kernel{kernel}, nil
 }
 
-func (lib *Library) GetModule() (*Module, error) {
+// TODO: Change the return type to a managed memory type
+func (lib *Library) GetManaged(name string) (*DeviceMemory, Result) {
+	return nil, ErrUnsupported
+	nameC := C.CString(name)
+	defer C.free(unsafe.Pointer(nameC))
+
+	var mem C.CUdeviceptr
+	var size C.size_t
+	stat := C.cuLibraryGetManaged(&mem, &size, lib.lib, nameC)
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
+	}
+	return &DeviceMemory{uintptr(mem), uint64(size), true}, nil
+}
+
+// TODO: Change the return type to a unified function type
+func (lib *Library) GetUnifiedFunction(name string) (*Function, Result) {
+	return nil, ErrUnsupported
+	nameC := C.CString(name)
+	defer C.free(unsafe.Pointer(nameC))
+	var fun unsafe.Pointer
+	stat := C.cuLibraryGetUnifiedFunction(&fun, lib.lib, nameC)
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
+	}
+	return nil, nil
+}
+
+func (lib *Library) GetModule() (*Module, Result) {
 	var module C.CUmodule
 	stat := C.cuLibraryGetModule(&module, lib.lib)
 	if stat != C.CUDA_SUCCESS {
@@ -134,28 +110,28 @@ func (lib *Library) GetModule() (*Module, error) {
 	return &Module{module}, nil
 }
 
-func (lib *Library) GetKernels() ([]*Kernel, error) {
+// TODO: think if we need to return kernel pointers
+func (lib *Library) GetKernels() ([]*Kernel, Result) {
 	var count C.uint
 	stat := C.cuLibraryGetKernelCount(&count, lib.lib)
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
 
-	kernels := C.malloc(C.size_t(count) * C.size_t(unsafe.Sizeof(C.CUkernel(nil))))
-	defer C.free(kernels)
-	stat = C.cuLibraryEnumerateKernels((*C.CUkernel)(kernels), count, lib.lib)
+	kernels := make([]C.CUkernel, int(count))
+	stat = C.cuLibraryEnumerateKernels(&kernels[0], count, lib.lib)
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
 
 	res := make([]*Kernel, int(count))
 	for i := 0; i < int(count); i++ {
-		res[i] = &Kernel{*(*C.CUkernel)(unsafe.Pointer(uintptr(kernels) + uintptr(i)*unsafe.Sizeof(C.CUkernel(nil))))}
+		res[i] = &Kernel{kernels[i]}
 	}
 	return res, nil
 }
 
-func (lib *Library) GetGlobal(name string) (*MemAllocation, error) {
+func (lib *Library) GetGlobal(name string) (*DeviceMemory, Result) {
 	nameC := C.CString(name)
 	defer C.free(unsafe.Pointer(nameC))
 	var mem C.CUdeviceptr
@@ -164,7 +140,47 @@ func (lib *Library) GetGlobal(name string) (*MemAllocation, error) {
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &MemAllocation{uintptr(mem), uint64(size), false}, nil
+	return &DeviceMemory{uintptr(mem), uint64(size), false}, nil
+}
+
+func (lib *Library) NativePointer() uintptr {
+	return uintptr(unsafe.Pointer(lib.lib))
+}
+
+func parseJitOptions(options []JitOption) (opts []C.CUjit_option, vals []C.uint,
+	optsAddr *C.CUjit_option, valsAddr *unsafe.Pointer) {
+	opts = make([]C.CUjit_option, len(options))
+	vals = make([]C.uint, len(options))
+
+	for i, opt := range options {
+		opts[i] = C.CUjit_option(opt.Option)
+		vals[i] = C.uint(opt.Value)
+	}
+
+	if len(options) > 0 {
+		optsAddr = &opts[0]
+		valsAddr = (*unsafe.Pointer)(unsafe.Pointer(&vals[0]))
+	}
+
+	return opts, vals, optsAddr, valsAddr
+}
+
+func parseLibraryOptions(options []LibraryOption) (opts []C.CUlibraryOption, vals []C.uint,
+	optsAddr *C.CUlibraryOption, valsAddr *unsafe.Pointer) {
+	opts = make([]C.CUlibraryOption, len(options))
+	vals = make([]C.uint, len(options))
+
+	for i, opt := range options {
+		opts[i] = C.CUlibraryOption(opt.Option)
+		vals[i] = C.uint(opt.Value)
+	}
+
+	if len(options) > 0 {
+		optsAddr = &opts[0]
+		valsAddr = (*unsafe.Pointer)(unsafe.Pointer(&vals[0]))
+	}
+
+	return opts, vals, optsAddr, valsAddr
 }
 
 const (

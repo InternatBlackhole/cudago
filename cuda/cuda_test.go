@@ -6,6 +6,7 @@ import (
 	"image/png"
 	"math"
 	"os"
+	"runtime"
 	"testing"
 	"unsafe"
 
@@ -17,7 +18,10 @@ const (
 )
 
 func TestEdgesKernel(t *testing.T) {
-	err := cuda.Init()
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	var err error
+	err = cuda.Init()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +44,7 @@ func TestEdgesKernel(t *testing.T) {
 		t.Fatal("Primary context is not active")
 	}
 
-	err = pctx.SetCurrent()
+	err = cuda.SetCurrentContext(&pctx.Context)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,13 +94,13 @@ func TestEdgesKernel(t *testing.T) {
 	size := uint64(imgSize.X * imgSize.Y * 1) // one color (byte) channel output
 
 	// Allocate memory for the image, and copy the image data to the device
-	grayImgData, err := cuda.MemAlloc(size)
+	grayImgData, err := cuda.DeviceMemAlloc(size)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer grayImgData.MemFree()
 
-	grad, err := cuda.MemAlloc(size)
+	grad, err := cuda.DeviceMemAlloc(size)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +128,7 @@ func TestEdgesKernel(t *testing.T) {
 
 	finalImg := make([]byte, size)
 
-	err = start.Record()
+	err = start.Record(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +149,7 @@ func TestEdgesKernel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = end.Record()
+	err = end.Record(nil)
 	if err != nil {
 		t.Fatal(err)
 	}

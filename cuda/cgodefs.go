@@ -15,3 +15,7 @@ package cuda
 //#cgo windows LDFLAGS:-LC:/cuda/lib/x64
 //#cgo windows CFLAGS: -IC:/cuda/include
 import "C"
+
+type NativeHandle interface {
+	NativePointer() uintptr
+}

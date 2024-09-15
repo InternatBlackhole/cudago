@@ -2,7 +2,6 @@ package cuda
 
 //#include <cuda.h>
 import "C"
-import "runtime"
 
 var (
 	isCudaInitialized bool = false
@@ -11,11 +10,11 @@ var (
 /*
  * Initializes the CUDA driver API for the current process.
  */
-func Init() error {
+func Init() Result {
 	if isCudaInitialized {
 		return nil
 	}
-	runtime.LockOSThread() // Lock this goroutine to a OS thread. no need, the init function initilzes the whole process
+	//runtime.LockOSThread() // the init function initializes the whole process
 	err := C.cuInit(0)
 	if err != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(err))
@@ -24,7 +23,7 @@ func Init() error {
 	return nil
 }
 
-func DriverVersion() (int32, error) {
+func DriverVersion() (int32, Result) {
 	var version int32
 	err := C.cuDriverGetVersion((*C.int)(&version))
 	if err != C.CUDA_SUCCESS {

@@ -3,18 +3,20 @@ package cuda
 //#include <cuda.h>
 //#include <stdlib.h>
 import "C"
+import "unsafe"
 
-type CudaEvent struct {
+type Event struct {
 	event C.CUevent
 }
 
-type CudaEventFlag uint32
+type EventFlag int
+type EventRecordFlag int
 
-func NewEvent() (*CudaEvent, error) {
+func NewEvent() (*Event, Result) {
 	return NewEventCustomFlags(CU_EVENT_DEFAULT)
 }
 
-func NewEventCustomFlags(event_flags CudaEventFlag) (*CudaEvent, error) {
+func NewEventCustomFlags(event_flags EventFlag) (*Event, Result) {
 	var event C.CUevent
 	stat := C.cuEventCreate(&event, C.uint(event_flags))
 
@@ -22,10 +24,10 @@ func NewEventCustomFlags(event_flags CudaEventFlag) (*CudaEvent, error) {
 		return nil, NewCudaError(uint32(stat))
 	}
 
-	return &CudaEvent{event}, nil
+	return &Event{event}, nil
 }
 
-func (e *CudaEvent) Destroy() error {
+func (e *Event) Destroy() Result {
 	stat := C.cuEventDestroy(e.event)
 
 	if stat != C.CUDA_SUCCESS {
@@ -35,10 +37,12 @@ func (e *CudaEvent) Destroy() error {
 	return nil
 }
 
-// TODO: Implement the stream parameter
-// TODO: Implement the flags parameter
-func (e *CudaEvent) Record( /*stream *CudaStream*/ ) error {
-	stat := C.cuEventRecord(e.event, nil)
+func (e *Event) Record(stream *Stream) Result {
+	var str C.CUstream = nil
+	if stream != nil {
+		str = stream.stream
+	}
+	stat := C.cuEventRecord(e.event, str)
 
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
@@ -47,7 +51,21 @@ func (e *CudaEvent) Record( /*stream *CudaStream*/ ) error {
 	return nil
 }
 
-func (e *CudaEvent) Synchronize() error {
+func (e *Event) RecordWithFlags(stream *Stream, flags EventRecordFlag) Result {
+	var str C.CUstream = nil
+	if stream != nil {
+		str = stream.stream
+	}
+	stat := C.cuEventRecordWithFlags(e.event, str, C.uint(flags))
+
+	if stat != C.CUDA_SUCCESS {
+		return NewCudaError(uint32(stat))
+	}
+
+	return nil
+}
+
+func (e *Event) Synchronize() Result {
 	stat := C.cuEventSynchronize(e.event)
 
 	if stat != C.CUDA_SUCCESS {
@@ -57,7 +75,23 @@ func (e *CudaEvent) Synchronize() error {
 	return nil
 }
 
-func EventElapsedTime(start, end *CudaEvent) (float32, error) {
+func (e *Event) Query() (completed bool, err Result) {
+	stat := C.cuEventQuery(e.event)
+
+	if stat == C.CUDA_SUCCESS {
+		return true, nil
+	} else if stat == C.CUDA_ERROR_NOT_READY {
+		return false, nil
+	} else {
+		return false, NewCudaError(uint32(stat))
+	}
+}
+
+func (e *Event) NativePointer() uintptr {
+	return uintptr(unsafe.Pointer(e.event))
+}
+
+func EventElapsedTime(start, end *Event) (float32, Result) {
 	var time float32
 	stat := C.cuEventElapsedTime((*C.float)(&time), start.event, end.event)
 
@@ -69,8 +103,13 @@ func EventElapsedTime(start, end *CudaEvent) (float32, error) {
 }
 
 const (
-	CU_EVENT_DEFAULT        CudaEventFlag = 0x0 // Default event flag
-	CU_EVENT_BLOCKING_SYNC  CudaEventFlag = 0x1 // Event uses blocking synchronization
-	CU_EVENT_DISABLE_TIMING CudaEventFlag = 0x2 // Event will not record timing data
-	CU_EVENT_INTERPROCESS   CudaEventFlag = 0x4 // Event is suitable for interprocess use. CU_EVENT_DISABLE_TIMING must be set
+	CU_EVENT_DEFAULT        EventFlag = 0x0 // Default event flag
+	CU_EVENT_BLOCKING_SYNC  EventFlag = 0x1 // Event uses blocking synchronization
+	CU_EVENT_DISABLE_TIMING EventFlag = 0x2 // Event will not record timing data
+	CU_EVENT_INTERPROCESS   EventFlag = 0x4 // Event is suitable for interprocess use. CU_EVENT_DISABLE_TIMING must be set
+)
+
+const (
+	CU_EVENT_RECORD_DEFAULT  EventRecordFlag = 0x0 // Default event record flag
+	CU_EVENT_RECORD_EXTERNAL EventRecordFlag = 0x1 //When using stream capture, create an event record node instead of the default behavior. This flag is invalid when used outside of capture.
 )
