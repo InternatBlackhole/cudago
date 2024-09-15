@@ -5,8 +5,10 @@ import (
 	"image"
 	"image/jpeg"
 	"math"
+	"math/rand"
 	"os"
 	"runtime"
+	"unsafe"
 
 	"github.com/InternatBlackhole/cudago/cuda"
 	"github.com/InternatBlackhole/cudago/tests/cuda_stuff"
@@ -32,6 +34,11 @@ func main() {
 	panicErr(err)
 	defer cuda_stuff.CloseLibrary_edges()
 
+	testBorders()
+
+}
+
+func testBorders() {
 	reader, err := os.Open("test10.jpg")
 	panicErr(err)
 	defer reader.Close()
@@ -76,6 +83,7 @@ func main() {
 	//finalImg := make([]byte, size)
 	finalImg, err := cuda.HostMemAlloc(size)
 	panicErr(err)
+	defer finalImg.Free()
 
 	err = start.Record(nil)
 	panicErr(err)
@@ -113,6 +121,52 @@ func main() {
 	panicErr(err)
 
 	fmt.Println("Image saved to output.jpg")
+}
+
+func testMultiKernel(numThreads, tableLength int) {
+	err := cuda_stuff.InitLibrary_multi_kernel()
+	panicErr(err)
+	defer cuda_stuff.CloseLibrary_multi_kernel()
+
+	//numBlocks := (tableLength/2-1)/numThreads + 1
+
+	memSize := uint64(tableLength) * uint64(unsafe.Sizeof(int32(0)))
+
+	a, err := cuda.HostMemAlloc(memSize)
+	panicErr(err)
+	defer a.Free()
+	as := unsafe.Slice((*int)(unsafe.Pointer(a.Ptr)), a.Size/uint64(unsafe.Sizeof(int(0))))
+
+	ha, err := cuda.HostMemAlloc(memSize)
+	panicErr(err)
+	defer ha.Free()
+	has := unsafe.Slice((*int)(unsafe.Pointer(ha.Ptr)), ha.Size/uint64(unsafe.Sizeof(int(0))))
+
+	da, err := cuda.DeviceMemAlloc(memSize)
+	panicErr(err)
+	defer da.Free()
+
+	for i := 0; i < tableLength; i++ {
+		as[i] = rand.Int()
+		has[i] = as[i]
+	}
+
+	start, err := cuda.NewEvent()
+	panicErr(err)
+	defer start.Destroy()
+
+	end, err := cuda.NewEvent()
+	panicErr(err)
+	defer end.Destroy()
+
+	err = start.Record(nil)
+	panicErr(err)
+
+	err = da.MemcpyToDevice(ha.AsSlice())
+	panicErr(err)
+
+	//gridSize, blockSize := cuda.Dim3{X: uint32(numBlocks), Y: 1, Z: 1}, cuda.Dim3{X: uint32(numThreads), Y: 1, Z: 1}
+	//err = cuda_stuff.
 }
 
 func rgbaToGray(img image.Image) *image.Gray {
