@@ -23,6 +23,7 @@
 	"settings": {
 		"ocaml.sandbox": {
 			"kind": "global"
-		}
+		},
+		"makefile.configureOnOpen": false
 	}
 }
