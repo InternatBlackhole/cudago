@@ -44,12 +44,12 @@ func WrapAllocationDevice(ptr uintptr, size uint64, freeable bool) *DeviceMemory
 }
 
 // Registers your host memory with CUDA. It is your responsibility to free the memory when you are done with it (after unregistering it).
-func RegisterAllocationHost(ptr []byte, flags HostMemRegisterFlag) (*HostMemory, Result) {
-	stat := C.cuMemHostRegister(unsafe.Pointer(&ptr[0]), C.size_t(len(ptr)), C.uint(flags))
+func RegisterAllocationHost(ptr *any, size uint64, flags HostMemRegisterFlag) (*HostMemory, Result) {
+	stat := C.cuMemHostRegister(unsafe.Pointer(ptr), C.size_t(size), C.uint(flags))
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &HostMemory{uintptr(unsafe.Pointer(&ptr[0])), uint64(len(ptr)), true}, nil
+	return &HostMemory{uintptr(unsafe.Pointer(ptr)), uint64(size), true}, nil
 }
 
 func WrapAllocationManaged(ptr uintptr, size uint64) *ManagedMemory {
