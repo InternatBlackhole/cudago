@@ -77,8 +77,10 @@ func mainWithCode() int {
 		}
 		defer outFile.Close()
 
-		args := templateArgsFromFile(srcFile)
-		args.SetFileName(base)
+		args := NewTemplateArgs()
+
+		args.SetFileName(base) // first fill the filename so that funcs can use it
+		fillTemplateArgsFromFile(srcFile, args)
 
 		if isProd {
 			err = createProdFile(args, outFile)
@@ -91,16 +93,16 @@ func mainWithCode() int {
 		}
 	}
 
-	//outFile, err := os.Create(packageName + "/utilities.go")
-	//panicErr(err)
-	//defer outFile.Close()
-	//err = createUtilityFile(&TemplateArgs{Package: packageName}, outFile)
-	//panicErr(err)
+	outFile, err := os.Create(packageName + "/utilities.go")
+	panicErr(err)
+	defer outFile.Close()
+	err = createUtilityFile(&TemplateArgs{Package: packageName}, outFile)
+	panicErr(err)
 
 	return 0
 }
 
-func templateArgsFromFile(file *os.File) *TemplateArgs {
+func fillTemplateArgsFromFile(file *os.File, template *TemplateArgs) {
 	//TODO: look at bufio.Scanner and SplitFunc
 	//reader := bufio.NewScanner(src)
 
@@ -124,16 +126,13 @@ func templateArgsFromFile(file *os.File) *TemplateArgs {
 
 	ptx, err := program.GetPTX()
 	nvrtcPanic(err, program)
-	kernels := make([]*CuFileFunc, 0)
-	vars := make(map[string]string)
-	consts := make(map[string]string)
 
 	err = getKernelNameAndArgs(string(buf), func(name string, args []string) (bool, error) {
-		k := NewTemplateFunc()
+		k := template.NewFunc()
 		k.SetName(name)
 		k.SetArgs(args)
 		k.IsKernel = true
-		kernels = append(kernels, k)
+		template.AddFunc(k)
 		return true, nil //continue
 	})
 	panicErr(err)
@@ -141,9 +140,9 @@ func templateArgsFromFile(file *os.File) *TemplateArgs {
 	err = getDefinedVariables(string(buf), func(name, ctyp string, typ definedLocationType) bool {
 		switch typ {
 		case TYPE_DEVICE_CONST:
-			consts[name] = ctyp
+			template.AddConstant(name, ctyp)
 		case TYPE_DEVICE_VAR:
-			vars[name] = ctyp
+			template.AddVariable(name, ctyp)
 		}
 		return true
 	})
@@ -151,15 +150,9 @@ func templateArgsFromFile(file *os.File) *TemplateArgs {
 		panic(err)
 	}
 
-	args := &TemplateArgs{
-		//Package:   packageName,
-		Funcs:     kernels,
-		Constants: consts,
-		Variables: vars,
-		PTXCode:   string(ptx),
-	}
-	args.SetPackage(packageName)
-	return args
+	template.SetPTXCode(string(ptx))
+	template.SetPackage(packageName)
+	//return template
 }
 
 func usage() {

@@ -12,8 +12,11 @@ func TestFileTemplateCreation(t *testing.T) {
 	args := NewTemplateArgs()
 	args.Package = "main"
 	args.SetPTXCode("some ptx code")
+	args.SetFileName("edges")
+	args.Constants = map[string]string{"someConst": "int", "someOtherConst": "float"}
+	args.Variables = map[string]string{"someVar": "float", "someOtherVar": "char"}
 
-	fun := NewTemplateFunc()
+	fun := args.NewFunc()
 	fun.SetName("borders")
 	cArgs := strings.Split("unsigned char *origImage, int width", ",")
 
@@ -25,8 +28,6 @@ func TestFileTemplateCreation(t *testing.T) {
 	fun.IsKernel = true
 
 	args.AddFunc(fun)
-	args.Constants = map[string]string{"someConst": "int", "someOtherConst": "float"}
-	args.Variables = map[string]string{"someVar": "float", "someOtherVar": "char"}
 	file := os.Stdout
 	err := createProdFile(args, file)
 	if err != nil {

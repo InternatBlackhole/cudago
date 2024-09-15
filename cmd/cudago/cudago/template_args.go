@@ -25,6 +25,8 @@ type CuFileFunc struct {
 	GoArgs   []Arg  // Go name -> Go type; arrays preserve ordering
 	CArgs    []Arg  // C name -> C type; arrays preseve ordering, discards const, unsigned, and pointers
 	IsKernel bool
+
+	FileName string // Name of the file this function is in
 }
 
 type CuVar struct {
@@ -42,6 +44,10 @@ func NewTemplateFunc() *CuFileFunc {
 	return &CuFileFunc{}
 }
 
+func (t *TemplateArgs) NewFunc() *CuFileFunc {
+	return &CuFileFunc{FileName: t.FileName}
+}
+
 func (k *CuFileFunc) SetName(name string) {
 	// Capitalize the first letter of the name
 	k.RawName = name
@@ -54,6 +60,14 @@ func (k *TemplateArgs) SetPTXCode(code string) {
 
 func (k *TemplateArgs) AddFunc(f *CuFileFunc) {
 	k.Funcs = append(k.Funcs, f)
+}
+
+func (k *TemplateArgs) AddConstant(name, ctype string) {
+	k.Constants[name] = ctype
+}
+
+func (k *TemplateArgs) AddVariable(name, ctype string) {
+	k.Variables[name] = ctype
 }
 
 func (k *TemplateArgs) SetFileName(name string) {
