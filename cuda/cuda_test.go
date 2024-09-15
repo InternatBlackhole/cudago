@@ -98,13 +98,13 @@ func TestEdgesKernel(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer grayImgData.MemFree()
+	defer grayImgData.Free()
 
 	grad, err := cuda.DeviceMemAlloc(size)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer grad.MemFree()
+	defer grad.Free()
 
 	dimBlock := cuda.Dim3{X: blockSize, Y: blockSize, Z: 1}
 	dimGrid := cuda.Dim3{

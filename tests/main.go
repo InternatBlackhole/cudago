@@ -12,7 +12,8 @@ import (
 )
 
 func main() {
-	err := cuda.Init()
+	var err error
+	err = cuda.Init()
 	panicErr(err)
 
 	dev, err := cuda.DeviceGet(0)
@@ -22,7 +23,7 @@ func main() {
 	panicErr(err)
 	defer pctx.Release()
 
-	err = pctx.SetCurrent()
+	err = cuda.SetCurrentContext(&pctx.Context)
 	panicErr(err)
 
 	err = cuda_stuff.InitLibrary_edges()
@@ -41,13 +42,13 @@ func main() {
 	imgSize := img.Bounds().Size()
 	size := uint64(imgSize.X * imgSize.Y)
 
-	grayImg, err := cuda.MemAlloc(size)
+	grayImg, err := cuda.DeviceMemAlloc(size)
 	panicErr(err)
-	defer grayImg.MemFree()
+	defer grayImg.Free()
 
-	grad, err := cuda.MemAlloc(size)
+	grad, err := cuda.DeviceMemAlloc(size)
 	panicErr(err)
-	defer grad.MemFree()
+	defer grad.Free()
 
 	blockSize := uint32(32)
 
@@ -69,7 +70,7 @@ func main() {
 
 	finalImg := make([]byte, size)
 
-	err = start.Record()
+	err = start.Record(nil)
 	panicErr(err)
 
 	err = grayImg.MemcpyToDevice(img.Pix)
@@ -81,7 +82,7 @@ func main() {
 	err = grad.MemcpyFromDevice(finalImg)
 	panicErr(err)
 
-	err = end.Record()
+	err = end.Record(nil)
 	panicErr(err)
 
 	err = end.Synchronize()
