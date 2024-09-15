@@ -22,7 +22,7 @@ func main() {
 	panicErr(err)
 	defer pctx.Release()
 
-	err = pctx.SetCurrent()
+	err = cuda.SetCurrentContext(&pctx.Context)
 	panicErr(err)
 
 	err = cuda_stuff.InitLibrary_edges()
@@ -41,11 +41,11 @@ func main() {
 	imgSize := img.Bounds().Size()
 	size := uint64(imgSize.X * imgSize.Y)
 
-	grayImg, err := cuda.MemAlloc(size)
+	grayImg, err := cuda.DeviceMemAlloc(size)
 	panicErr(err)
 	defer grayImg.MemFree()
 
-	grad, err := cuda.MemAlloc(size)
+	grad, err := cuda.DeviceMemAlloc(size)
 	panicErr(err)
 	defer grad.MemFree()
 

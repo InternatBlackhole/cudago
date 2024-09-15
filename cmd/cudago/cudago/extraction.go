@@ -17,6 +17,7 @@ const (
 	// varRegex is the regex to match a CUDA variable
 	//varRegex = `__device__\s+([^\(\)]*);`
 
+	//TODO: add support for __managed__ variables
 	// regexConstVar is the regex to match a CUDA constant or device variable
 	// format: __device__ type varName
 	// format: __constant__ type constName
