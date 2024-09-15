@@ -10,6 +10,13 @@ type Freeable interface {
 	Free() Result
 }
 
+type Memory interface {
+	Freeable
+	MemcpyFromDevice(dst []byte) Result
+	MemcpyToDevice(src []byte) Result
+	//Memset(value byte) Result
+}
+
 type DeviceMemory struct {
 	Ptr      uintptr //CUdeviceptr
 	Size     uint64
@@ -22,6 +29,7 @@ type HostMemory struct {
 	registered bool
 }
 
+// TODO: expose this as and []byte or []int8 so that user can copy into it
 type ManagedMemory struct {
 	Ptr  uintptr
 	Size uint64
@@ -88,9 +96,7 @@ func (dev *DeviceMemory) MemcpyToDevice(src []byte) Result {
 		return newInternalError("source size is greater than device memory size")
 	}
 
-	carr := C.CBytes(src) //is a copy needed?
-	defer C.free(carr)
-	stat := C.cuMemcpyHtoD(C.ulonglong(dev.Ptr), carr, C.size_t(len(src))) //carr = unsafe.Pointer(&src[0])
+	stat := C.cuMemcpyHtoD(C.ulonglong(dev.Ptr), unsafe.Pointer(&src[0]), C.size_t(len(src)))
 
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
@@ -118,7 +124,7 @@ func (dev *DeviceMemory) MemcpyFromDevice(dst []byte) Result {
 	return nil
 }
 
-func HostMemAlloc(size uint64, flags HostMemAllocFlag) (*HostMemory, Result) {
+func HostMemAllocWithFlags(size uint64, flags HostMemAllocFlag) (*HostMemory, Result) {
 	var ptr unsafe.Pointer
 	stat := C.cuMemHostAlloc(&ptr, C.size_t(size), C.uint(flags))
 
@@ -127,6 +133,15 @@ func HostMemAlloc(size uint64, flags HostMemAllocFlag) (*HostMemory, Result) {
 	}
 
 	return &HostMemory{uintptr(ptr), size, true}, nil
+}
+
+func HostMemAlloc(size uint64) (*HostMemory, Result) {
+	var ptr unsafe.Pointer
+	stat := C.cuMemAllocHost(&ptr, C.size_t(size))
+	if stat != C.CUDA_SUCCESS {
+		return nil, NewCudaError(uint32(stat))
+	}
+	return &HostMemory{uintptr(ptr), size, false}, nil
 }
 
 func (ptr *HostMemory) Free() Result {
@@ -152,6 +167,46 @@ func (ptr *HostMemory) Free() Result {
 	return nil
 }
 
+/*func (ptr *HostMemory) MemcpyToDevice(src []byte) Result {
+	if ptr == nil || ptr.Ptr == 0 {
+		return newInternalError("invalid host memory")
+	}
+
+	if len(src) > int(ptr.Size) {
+		return newInternalError("source size is greater than host memory size")
+	}
+
+	stat := C.cuMemcpyHtoD(C.ulonglong(ptr.Ptr), unsafe.Pointer(&src[0]), C.size_t(len(src)))
+
+	if stat != C.CUDA_SUCCESS {
+		return NewCudaError(uint32(stat))
+	}
+
+	return nil
+}
+
+func (ptr *HostMemory) MemcpyFromDevice(dst []byte) Result {
+	if ptr == nil || ptr.Ptr == 0 {
+		return newInternalError("invalid host memory")
+	}
+
+	if len(dst) > int(ptr.Size) {
+		return newInternalError("destination size is greater than host memory size")
+	}
+
+	stat := C.cuMemcpyDtoH(unsafe.Pointer(&dst[0]), C.ulonglong(ptr.Ptr), C.size_t(len(dst)))
+
+	if stat != C.CUDA_SUCCESS {
+		return NewCudaError(uint32(stat))
+	}
+
+	return nil
+}*/
+
+func (ptr *HostMemory) AsSlice() []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(ptr.Ptr)), int(ptr.Size))
+}
+
 func ManagedMemAlloc(size uint64, flags MemAttachFlag) (*ManagedMemory, Result) {
 	var ptr C.CUdeviceptr
 	stat := C.cuMemAllocManaged(&ptr, C.size_t(size), C.uint(flags))
@@ -160,6 +215,26 @@ func ManagedMemAlloc(size uint64, flags MemAttachFlag) (*ManagedMemory, Result) 
 	}
 
 	return &ManagedMemory{uintptr(ptr), size}, nil
+}
+
+func (ptr *ManagedMemory) Free() Result {
+	if ptr == nil || ptr.Ptr == 0 {
+		return nil
+	}
+
+	stat := C.cuMemFree(C.CUdeviceptr(ptr.Ptr))
+
+	if stat != C.CUDA_SUCCESS {
+		return NewCudaError(uint32(stat))
+	}
+
+	ptr.Ptr = 0
+	ptr.Size = 0
+	return nil
+}
+
+func (ptr *ManagedMemory) AsSlice() []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(ptr.Ptr)), int(ptr.Size))
 }
 
 const (
