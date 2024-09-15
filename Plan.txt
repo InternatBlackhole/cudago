@@ -19,3 +19,5 @@ en gpu lahko v enem cuda context izvaja vec kernels hkrati (https://docs.nvidia.
 https://github.com/alecthomas/participle poglej za parser generator
 
 extract stuff from PTX file?
+
+BTW urejanje-4.cu ne dela pravilno za karkoli vecje od ali enako 1 << 16 elems

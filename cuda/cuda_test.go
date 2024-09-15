@@ -133,7 +133,7 @@ func TestEdgesKernel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = grayImgData.MemcpyToDevice(img.Pix)
+	err = grayImgData.MemcpyToDevice(unsafe.Pointer(&img.Pix[0]), uint64(len(img.Pix)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestEdgesKernel(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = grad.MemcpyFromDevice(finalImg)
+	err = grad.MemcpyFromDevice(unsafe.Pointer(&finalImg[0]), uint64(len(finalImg)))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,6 +6,12 @@ import (
 	"unsafe"
 )
 
+type Number interface {
+	int | int8 | int16 | int32 | int64 |
+		uint | uint8 | uint16 | uint32 | uint64 | uintptr |
+		float32 | float64
+}
+
 type Freeable interface {
 	Free() Result
 }
@@ -23,9 +29,9 @@ type DeviceMemory struct {
 	freeable bool
 }
 
-type HostMemory struct {
-	Ptr        uintptr
-	Size       uint64
+type HostMemory[T Number] struct {
+	Arr        []T
+	ActualSize uint64
 	registered bool
 }
 
@@ -44,12 +50,14 @@ func WrapAllocationDevice(ptr uintptr, size uint64, freeable bool) *DeviceMemory
 }
 
 // Registers your host memory with CUDA. It is your responsibility to free the memory when you are done with it (after unregistering it).
-func RegisterAllocationHost(ptr *any, size uint64, flags HostMemRegisterFlag) (*HostMemory, Result) {
-	stat := C.cuMemHostRegister(unsafe.Pointer(ptr), C.size_t(size), C.uint(flags))
+func RegisterAllocationHost[T Number](ptr []T, elemSize uint64, flags HostMemRegisterFlag) (*HostMemory[T], Result) {
+	len := uint64(len(ptr))
+	actualSize := len * elemSize
+	stat := C.cuMemHostRegister(unsafe.Pointer(&ptr[0]), C.size_t(actualSize), C.uint(flags))
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &HostMemory{uintptr(unsafe.Pointer(ptr)), uint64(size), true}, nil
+	return &HostMemory[T]{unsafe.Slice((*T)(unsafe.Pointer(&ptr[0])), len), actualSize, true}, nil
 }
 
 func WrapAllocationManaged(ptr uintptr, size uint64) *ManagedMemory {
@@ -87,16 +95,16 @@ func (ptr *DeviceMemory) Free() Result {
 	return nil
 }
 
-func (dev *DeviceMemory) MemcpyToDevice(src []byte) Result {
+func (dev *DeviceMemory) MemcpyToDevice(src unsafe.Pointer, srcSize uint64) Result {
 	if dev == nil || dev.Ptr == 0 {
 		return newInternalError("invalid device memory")
 	}
 
-	if len(src) > int(dev.Size) {
+	if srcSize > dev.Size {
 		return newInternalError("source size is greater than device memory size")
 	}
 
-	stat := C.cuMemcpyHtoD(C.ulonglong(dev.Ptr), unsafe.Pointer(&src[0]), C.size_t(len(src)))
+	stat := C.cuMemcpyHtoD(C.ulonglong(dev.Ptr), unsafe.Pointer(src), C.size_t(srcSize))
 
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
@@ -105,17 +113,17 @@ func (dev *DeviceMemory) MemcpyToDevice(src []byte) Result {
 	return nil
 }
 
-func (dev *DeviceMemory) MemcpyFromDevice(dst []byte) Result {
+func (dev *DeviceMemory) MemcpyFromDevice(dst unsafe.Pointer, dstSize uint64) Result {
 
 	if dev == nil || dev.Ptr == 0 {
 		return newInternalError("invalid device memory")
 	}
 
-	if len(dst) > int(dev.Size) {
+	if dstSize > dev.Size {
 		return newInternalError("destination size is greater than device memory size")
 	}
 
-	stat := C.cuMemcpyDtoH(unsafe.Pointer(&dst[0]), C.ulonglong(dev.Ptr), C.size_t(len(dst)))
+	stat := C.cuMemcpyDtoH(unsafe.Pointer(dst), C.ulonglong(dev.Ptr), C.size_t(dstSize))
 
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
@@ -124,46 +132,49 @@ func (dev *DeviceMemory) MemcpyFromDevice(dst []byte) Result {
 	return nil
 }
 
-func HostMemAllocWithFlags(size uint64, flags HostMemAllocFlag) (*HostMemory, Result) {
+func HostMemAllocWithFlags[T Number](len uint64, elemSize uint64, flags HostMemAllocFlag) (*HostMemory[T], Result) {
 	var ptr unsafe.Pointer
+	size := len * elemSize
 	stat := C.cuMemHostAlloc(&ptr, C.size_t(size), C.uint(flags))
 
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
 
-	return &HostMemory{uintptr(ptr), size, true}, nil
+	return &HostMemory[T]{unsafe.Slice((*T)(ptr), len), size, false}, nil
 }
 
-func HostMemAlloc(size uint64) (*HostMemory, Result) {
+func HostMemAlloc[T Number](len uint64, elemSize uint64) (*HostMemory[T], Result) {
 	var ptr unsafe.Pointer
+	size := len * elemSize
 	stat := C.cuMemAllocHost(&ptr, C.size_t(size))
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &HostMemory{uintptr(ptr), size, false}, nil
+	return &HostMemory[T]{unsafe.Slice((*T)(ptr), len), size, false}, nil
 }
 
-func (ptr *HostMemory) Free() Result {
-	if ptr == nil || ptr.Ptr == 0 {
+func (ptr *HostMemory[T]) Free() Result {
+	if ptr.Arr == nil || ptr.ActualSize == 0 {
 		return nil
 	}
 
 	if ptr.registered {
-		stat := C.cuMemHostUnregister(unsafe.Pointer(ptr.Ptr))
+		stat := C.cuMemHostUnregister(unsafe.Pointer(&ptr.Arr[0]))
 		if stat != C.CUDA_SUCCESS {
 			return NewCudaError(uint32(stat))
 		}
 	} else {
-		stat := C.cuMemFreeHost(unsafe.Pointer(ptr.Ptr))
+		stat := C.cuMemFreeHost(unsafe.Pointer(&ptr.Arr[0]))
 
 		if stat != C.CUDA_SUCCESS {
 			return NewCudaError(uint32(stat))
 		}
 	}
 
-	ptr.Ptr = 0
-	ptr.Size = 0
+	//ptr.Ptr = 0
+	ptr.Arr = nil
+	ptr.ActualSize = 0
 	return nil
 }
 
@@ -203,8 +214,8 @@ func (ptr *HostMemory) MemcpyFromDevice(dst []byte) Result {
 	return nil
 }*/
 
-func (ptr *HostMemory) AsSlice() []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(ptr.Ptr)), int(ptr.Size))
+func (ptr *HostMemory[T]) AsByteSlice() []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(&ptr.Arr[0])), int(ptr.ActualSize))
 }
 
 func ManagedMemAlloc(size uint64, flags MemAttachFlag) (*ManagedMemory, Result) {
