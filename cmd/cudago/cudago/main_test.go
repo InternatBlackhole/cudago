@@ -29,7 +29,7 @@ func TestFileTemplateCreation(t *testing.T) {
 
 	args.AddFunc(fun)
 	file := os.Stdout
-	err := createProdFile(args, file)
+	err := createWrapper(args, file, prodAutoLoad)
 	if err != nil {
 		t.Fatal(err)
 	} else {
