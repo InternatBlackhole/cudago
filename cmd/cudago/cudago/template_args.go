@@ -5,13 +5,19 @@ import (
 	"unicode"
 )
 
+type Type int
+
 type TemplateArgs struct {
 	Package   string
 	FileName  string
 	Funcs     []*CuFileFunc
 	Constants map[string]string // const name -> const type (is always cuda.MemAllocation)
 	Variables map[string]string // var name -> var type (is always cuda.MemAllocation)
-	PTXCode   string
+
+	PTXCode string   // PTX code for the file; only used in production mode
+	Path    string   // Path to the file that needs to be compiled; only used in debug mode
+	Options []string // Options to pass to nvcc; only used in debug mode
+
 }
 
 type Arg struct {
@@ -26,7 +32,7 @@ type CuFileFunc struct {
 	CArgs    []Arg  // C name -> C type; arrays preseve ordering, discards const, unsigned, and pointers
 	IsKernel bool
 
-	FileName string // Name of the file this function is in
+	TemplateArgs *TemplateArgs // Reference to the parent TemplateArgs
 }
 
 type CuVar struct {
@@ -45,7 +51,7 @@ func NewTemplateFunc() *CuFileFunc {
 }
 
 func (t *TemplateArgs) NewFunc() *CuFileFunc {
-	return &CuFileFunc{FileName: t.FileName}
+	return &CuFileFunc{TemplateArgs: t}
 }
 
 func (k *CuFileFunc) SetName(name string) {
@@ -76,6 +82,15 @@ func (k *TemplateArgs) SetFileName(name string) {
 
 func (k *TemplateArgs) SetPackage(name string) {
 	k.Package = strings.Trim(strings.Map(validMap, name), "_")
+}
+
+// func is used in template
+func (k *TemplateArgs) GetKey() string {
+	return k.FileName
+}
+
+func (k *TemplateArgs) SetPath(path string) {
+	k.Path = path
 }
 
 // SetArgs sets the C and Go names and types of the arguments into their respective maps
@@ -133,3 +148,8 @@ var typeMap = map[string]string{
 	"float":  "float32",
 	"double": "float64",
 }
+
+const (
+	debug      Type = 0
+	production Type = 1
+)

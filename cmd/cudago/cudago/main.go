@@ -2,13 +2,16 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
+	"text/template"
 
 	"github.com/InternatBlackhole/cudago/nvrtc"
 )
@@ -21,6 +24,7 @@ var (
 	//templates are in templates.go
 
 	validPackageNameRegex = regexp.MustCompile(`[^[:digit:]][[:alnum:]]*`)
+	nvrtcFlagsParsed      = []string{}
 )
 
 func main() {
@@ -56,6 +60,8 @@ func mainWithCode() int {
 		return 1
 	}
 
+	nvrtcFlagsParsed = append(strings.Split(nvrtcFlags, ","), "-restrict")
+
 	err := os.MkdirAll(packageName, os.ModePerm)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error creating output directory: %v\n", err)
@@ -79,14 +85,25 @@ func mainWithCode() int {
 
 		args := NewTemplateArgs()
 
+		absName, err := filepath.Abs(file)
+		if err != nil {
+			panic(err)
+		}
+
 		args.SetFileName(base) // first fill the filename so that funcs can use it
+		args.SetPath(absName)
+		args.Options = nvrtcFlagsParsed
 		fillTemplateArgsFromFile(srcFile, args)
 
+		var autoloadTemplate autoloadTemplate
+
 		if isProd {
-			err = createProdFile(args, outFile)
+			autoloadTemplate = prodAutoLoad
 		} else {
-			err = createDevFile(args, outFile)
+			autoloadTemplate = devAutoLoad
 		}
+
+		err = createWrapper(args, outFile, autoloadTemplate)
 
 		if err != nil {
 			panic(err)
@@ -96,7 +113,7 @@ func mainWithCode() int {
 	outFile, err := os.Create(packageName + "/utilities.go")
 	panicErr(err)
 	defer outFile.Close()
-	err = createUtilityFile(&TemplateArgs{Package: packageName}, outFile)
+	err = createUtilityFile(&TemplateArgs{Package: packageName}, outFile, utilityFile)
 	panicErr(err)
 
 	return 0
@@ -121,7 +138,7 @@ func fillTemplateArgsFromFile(file *os.File, template *TemplateArgs) {
 	program, err := nvrtc.CreateProgram(string(buf), file.Name(), nil)
 	nvrtcPanic(err, program)
 	defer program.Destroy()
-	err = program.Compile(strings.Split(nvrtcFlags, ","))
+	err = program.Compile(nvrtcFlagsParsed)
 	nvrtcPanic(err, program)
 
 	ptx, err := program.GetPTX()
@@ -153,6 +170,57 @@ func fillTemplateArgsFromFile(file *os.File, template *TemplateArgs) {
 	template.SetPTXCode(string(ptx))
 	template.SetPackage(packageName)
 	//return template
+}
+
+func createWrapper(kernel *TemplateArgs, outFile *os.File, autoload autoloadTemplate) error {
+	if outFile == nil {
+		return errors.New("file is nil")
+	}
+
+	tmpl := template.New("wrapperTemplate")
+	tmpl.Funcs(templateFunctions)
+
+	_, err := tmpl.New("functionTemplate").Parse(string(functionTemplate))
+	if err != nil {
+		return err
+	}
+
+	_, err = tmpl.New("autoload").Parse(string(autoload))
+	if err != nil {
+		return err
+	}
+
+	tmpl, err = tmpl.Parse(string(wrapperTemplate))
+	if err != nil {
+		return err
+	}
+
+	err = tmpl.Execute(outFile, kernel)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func createUtilityFile(kernel *TemplateArgs, outFile *os.File, templateStr utilityTemplate) error {
+	if outFile == nil {
+		return errors.New("file is nil")
+	}
+
+	tmpl := template.New("utilityFile")
+
+	tmpl, err := tmpl.Parse(string(templateStr))
+	if err != nil {
+		return err
+	}
+
+	err = tmpl.Execute(outFile, kernel)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func usage() {
