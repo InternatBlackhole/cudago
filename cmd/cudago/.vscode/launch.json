@@ -9,13 +9,11 @@
             "type": "go",
             "request": "launch",
             "mode": "debug",
-            "program": "${workspaceFolder}/cudago/",
+            "program": "${workspaceFolder}/cudago",
             "args": [
                 "-prod",
                 "-package",
-                "testcuda",
-                "-nvcc",
-                "-I/usr/local/cuda-12.6/targets/x86_64-linux/include",
+                "cuda stuff",
                 "--",
                 "${workspaceFolder}/../../tests/multi-kernel.cu",
                 "${workspaceFolder}/../../tests/edges.cu"
@@ -30,9 +28,7 @@
             "args": [
                 "-prod",
                 "-package",
-                "testcuda",
-                "-nvcc",
-                "-I/usr/local/cuda-12.6/targets/x86_64-linux/include",
+                "cuda stuff",
                 "--",
                 "${workspaceFolder}/../../tests/multi-kernel.cu",
                 "${workspaceFolder}/../../tests/edges.cu"

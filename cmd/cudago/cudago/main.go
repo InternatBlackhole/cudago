@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -25,6 +26,11 @@ var (
 
 	validPackageNameRegex = regexp.MustCompile(`[^[:digit:]][[:alnum:]]*`)
 	nvrtcFlagsParsed      = []string{}
+)
+
+const (
+	includePathPostfix = "/include"
+	libsPathPostfix    = "/lib64"
 )
 
 func main() {
@@ -60,7 +66,14 @@ func mainWithCode() int {
 		return 1
 	}
 
-	nvrtcFlagsParsed = append(strings.Split(nvrtcFlags, ","), "-restrict")
+	cuda_flags := getCorrectCudaPath()
+	println("Using cuda flags: ", cuda_flags)
+
+	if nvrtcFlags == "" {
+		nvrtcFlagsParsed = append(nvrtcFlagsParsed, "-restrict", cuda_flags)
+	} else {
+		nvrtcFlagsParsed = append(strings.Split(nvrtcFlags, ","), "-restrict", cuda_flags)
+	}
 
 	err := os.MkdirAll(packageName, os.ModePerm)
 	if err != nil {
@@ -245,4 +258,65 @@ func nvrtcPanic(erro error, program *nvrtc.Program) {
 	}
 	fmt.Printf("NVRTC error: %v\nLog: %s", err, log)
 	panic(erro)
+}
+
+const pkgConfigName = "pkg-config"
+
+func getCorrectCudaPath() (args string) {
+	cudaPath := os.Getenv("CUDA_PATH")
+	if cudaPath != "" {
+		return fmt.Sprintf("-I%s%s -L%s%s -lcuda", cudaPath, includePathPostfix, cudaPath, libsPathPostfix)
+	}
+
+	println("CUDA_PATH not set, trying to use pkg-config to get CFLAGS and LDFLAGS, will use the latest version found")
+	println("If you have a custom installation of CUDA, you can set the CUDA_PATH environment variable or create a pkg-config package named \"cuda\" for your default installation")
+
+	check := func(name string, pkg string) (string, error) {
+		cmd := exec.Command(pkgConfigName, "--cflags", "--libs", pkg)
+		out, err := cmd.Output()
+		if err != nil {
+			//if the error code is anything other than 1, then it's an error
+			if exitErr, ok := err.(*exec.ExitError); ok {
+				if exitErr.ExitCode() != 0 {
+					return "", fmt.Errorf("package %s not found", name)
+				}
+			}
+			return "", err
+		}
+		return strings.Trim(string(out), "\n "), nil
+	}
+
+	args, err := check(pkgConfigName, "cuda")
+	if err != nil {
+		if err.Error() == "package cuda not found" {
+			for _, n := range validCudaVersions {
+				fmt.Printf("trying to use \"cuda-%s\" as pkg-config package", n)
+				args, err = check(pkgConfigName, fmt.Sprintf("cuda-%s", n))
+				if err == nil {
+					break
+				}
+			}
+		} else {
+			panic(err)
+		}
+	}
+
+	return args
+}
+
+// valid cuda major versions as of 2024-09-29
+var validCudaVersions = []string{
+	"", // empty string for the version set by the system (if it set it)
+	"12.6", "12.5", "12.4", "12.3", "12.2", "12.1", "12.0",
+	"11.8", "11.7", "11.6", "11.5", "11.4", "11.3", "11.2", "11.1", "11.0",
+	"10.2", "10.1", "10.0",
+	"9.2", "9.1", "9.0",
+	"8.0",
+	"7.5", "7.0",
+	"6.5", "6.0",
+	"5.5", "5.0",
+	"4.2", "4.1", "4.0",
+	"3.2", "3.1", "3.0",
+	"2.3", "2.2", "2.1", "2.0",
+	"1.1", "1.0",
 }
