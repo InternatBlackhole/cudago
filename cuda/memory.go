@@ -30,8 +30,9 @@ type DeviceMemory struct {
 }
 
 type HostMemory[T Number] struct {
+	Ptr        uintptr //address of the first byte
 	Arr        []T
-	ActualSize uint64
+	ActualSize uint64 // number of bytes allocated for Arr
 	registered bool
 }
 
@@ -53,11 +54,12 @@ func WrapAllocationDevice(ptr uintptr, size uint64, freeable bool) *DeviceMemory
 func RegisterAllocationHost[T Number](ptr []T, elemSize uint64, flags HostMemRegisterFlag) (*HostMemory[T], Result) {
 	len := uint64(len(ptr))
 	actualSize := len * elemSize
-	stat := C.cuMemHostRegister(unsafe.Pointer(&ptr[0]), C.size_t(actualSize), C.uint(flags))
+	firstElemAddr := unsafe.Pointer(&ptr[0])
+	stat := C.cuMemHostRegister(firstElemAddr, C.size_t(actualSize), C.uint(flags))
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &HostMemory[T]{unsafe.Slice((*T)(unsafe.Pointer(&ptr[0])), len), actualSize, true}, nil
+	return &HostMemory[T]{uintptr(firstElemAddr), unsafe.Slice((*T)(firstElemAddr), len), actualSize, true}, nil
 }
 
 func WrapAllocationManaged(ptr uintptr, size uint64) *ManagedMemory {
@@ -141,7 +143,7 @@ func HostMemAllocWithFlags[T Number](len uint64, elemSize uint64, flags HostMemA
 		return nil, NewCudaError(uint32(stat))
 	}
 
-	return &HostMemory[T]{unsafe.Slice((*T)(ptr), len), size, false}, nil
+	return &HostMemory[T]{uintptr(ptr), unsafe.Slice((*T)(ptr), len), size, false}, nil
 }
 
 func HostMemAlloc[T Number](len uint64, elemSize uint64) (*HostMemory[T], Result) {
@@ -151,7 +153,7 @@ func HostMemAlloc[T Number](len uint64, elemSize uint64) (*HostMemory[T], Result
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
-	return &HostMemory[T]{unsafe.Slice((*T)(ptr), len), size, false}, nil
+	return &HostMemory[T]{uintptr(ptr), unsafe.Slice((*T)(ptr), len), size, false}, nil
 }
 
 func (ptr *HostMemory[T]) Free() Result {
@@ -172,7 +174,7 @@ func (ptr *HostMemory[T]) Free() Result {
 		}
 	}
 
-	//ptr.Ptr = 0
+	ptr.Ptr = 0
 	ptr.Arr = nil
 	ptr.ActualSize = 0
 	return nil
