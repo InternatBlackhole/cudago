@@ -36,10 +36,10 @@ type HostMemory[T Number] struct {
 	registered bool
 }
 
-// TODO: expose this as and []byte or []int8 so that user can copy into it
-type ManagedMemory struct {
-	Ptr  uintptr
-	Size uint64
+type ManagedMemory[T Number] struct {
+	Ptr        uintptr
+	Arr        []T
+	ActualSize uint64
 }
 
 type MemAttachFlag int
@@ -60,10 +60,6 @@ func RegisterAllocationHost[T Number](ptr []T, elemSize uint64, flags HostMemReg
 		return nil, NewCudaError(uint32(stat))
 	}
 	return &HostMemory[T]{uintptr(firstElemAddr), unsafe.Slice((*T)(firstElemAddr), len), actualSize, true}, nil
-}
-
-func WrapAllocationManaged(ptr uintptr, size uint64) *ManagedMemory {
-	return &ManagedMemory{ptr, size}
 }
 
 func DeviceMemAlloc(size uint64) (*DeviceMemory, Result) {
@@ -220,17 +216,18 @@ func (ptr *HostMemory[T]) AsByteSlice() []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(&ptr.Arr[0])), int(ptr.ActualSize))
 }
 
-func ManagedMemAlloc(size uint64, flags MemAttachFlag) (*ManagedMemory, Result) {
+func ManagedMemAlloc[T Number](elems uint64, elemSize uint64, flags MemAttachFlag) (*ManagedMemory[T], Result) {
 	var ptr C.CUdeviceptr
+	size := elems * elemSize
 	stat := C.cuMemAllocManaged(&ptr, C.size_t(size), C.uint(flags))
 	if stat != C.CUDA_SUCCESS {
 		return nil, NewCudaError(uint32(stat))
 	}
 
-	return &ManagedMemory{uintptr(ptr), size}, nil
+	return &ManagedMemory[T]{uintptr(ptr), unsafe.Slice((*T)(unsafe.Pointer(uintptr(ptr))), elems), size}, nil
 }
 
-func (ptr *ManagedMemory) Free() Result {
+func (ptr *ManagedMemory[T]) Free() Result {
 	if ptr == nil || ptr.Ptr == 0 {
 		return nil
 	}
@@ -242,12 +239,33 @@ func (ptr *ManagedMemory) Free() Result {
 	}
 
 	ptr.Ptr = 0
-	ptr.Size = 0
+	ptr.ActualSize = 0
+	ptr.Arr = nil
 	return nil
 }
 
-func (ptr *ManagedMemory) AsSlice() []byte {
-	return unsafe.Slice((*byte)(unsafe.Pointer(ptr.Ptr)), int(ptr.Size))
+func (ptr *ManagedMemory[T]) AsByteSlice() []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(ptr.Ptr)), int(ptr.ActualSize))
+}
+
+func MemCpy(dst uintptr, src uintptr, size uint64) Result {
+	stat := C.cuMemcpy(C.ulonglong(dst), C.ulonglong(src), C.size_t(size))
+	if stat != C.CUDA_SUCCESS {
+		return NewCudaError(uint32(stat))
+	}
+	return nil
+}
+
+func MemCpyAsync(dst uintptr, src uintptr, size uint64, stream *Stream) Result {
+	str := C.CUstream(nil)
+	if stream != nil {
+		str = stream.stream
+	}
+	stat := C.cuMemcpyAsync(C.ulonglong(dst), C.ulonglong(src), C.size_t(size), str)
+	if stat != C.CUDA_SUCCESS {
+		return NewCudaError(uint32(stat))
+	}
+	return nil
 }
 
 const (
