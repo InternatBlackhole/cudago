@@ -21,3 +21,9 @@ https://github.com/alecthomas/participle poglej za parser generator
 extract stuff from PTX file?
 
 BTW urejanje-4.cu ne dela pravilno za karkoli vecje od ali enako 1 << 16 elems
+
+
+
+Poglej kako bi uporabil env vars v cgodefs files za določanje cuda path namesto kot da uporabljas pkg-config
+
+Eliminiraj uporabo 

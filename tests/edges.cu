@@ -37,4 +37,3 @@ extern "C" __global__ void borders(unsigned char *origImage, int width, int heig
         offset += blockDim.x * gridDim.x * blockDim.y * gridDim.y;
     }
 }
-

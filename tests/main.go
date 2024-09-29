@@ -15,6 +15,7 @@ import (
 )
 
 func main() {
+	//naredi v en init func
 	runtime.LockOSThread()
 	var err error
 	err = cuda.Init()
@@ -29,13 +30,10 @@ func main() {
 
 	err = cuda.SetCurrentContext(&pctx.Context)
 	panicErr(err)
-
-	//err = cuda_stuff.InitLibrary_edges()
-	//panicErr(err)
-	//defer cuda_stuff.CloseLibrary_edges()
+	//do sem
 
 	borders()
-	//size := 1 << 10
+	//size := 1 << 15
 	//multiKernel(int(math.Min(1024, float64(size))), size)
 }
 
