@@ -6,7 +6,6 @@ import (
 	"image/jpeg"
 	"math"
 	"os"
-	"runtime"
 	"time"
 	"unsafe"
 
@@ -15,22 +14,10 @@ import (
 )
 
 func main() {
-	//naredi v en init func
-	runtime.LockOSThread()
 	var err error
-	err = cuda.Init()
+	dev, err := cuda.Init(0)
 	panicErr(err)
-
-	dev, err := cuda.DeviceGet(0)
-	panicErr(err)
-
-	pctx, err := cuda.DevicePrimaryCtxRetain(dev)
-	panicErr(err)
-	defer pctx.Release()
-
-	err = cuda.SetCurrentContext(&pctx.Context)
-	panicErr(err)
-	//do sem
+	defer dev.Close()
 
 	borders()
 	//size := 1 << 15

@@ -6,7 +6,6 @@ import (
 	"image/png"
 	"math"
 	"os"
-	"runtime"
 	"testing"
 	"unsafe"
 
@@ -18,35 +17,18 @@ const (
 )
 
 func TestEdgesKernel(t *testing.T) {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
 	var err error
-	err = cuda.Init()
+	dev, err := cuda.Init(0)
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer dev.Close()
 
-	dev, err := cuda.DeviceGet(0)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	pctx, err := cuda.DevicePrimaryCtxRetain(dev)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pctx.Release()
-
-	_, active, err := pctx.GetState()
+	_, active, err := dev.PrimaryCtx.GetState()
 	if err != nil {
 		t.Fatal(err)
 	} else if !active {
 		t.Fatal("Primary context is not active")
-	}
-
-	err = cuda.SetCurrentContext(&pctx.Context)
-	if err != nil {
-		t.Fatal(err)
 	}
 
 	lib, err := cuda.LoadLibraryFromPath("../tests/edgesC.ptx", nil, nil)

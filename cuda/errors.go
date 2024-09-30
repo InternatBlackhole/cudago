@@ -15,8 +15,6 @@ var (
 	//ErrInvalidParam   = newStaticError(errors.New("invalid parameter"))
 )
 
-// TODO: Implement a general error that is not specific to CUDA
-
 type Error struct {
 	res C.CUresult
 }
