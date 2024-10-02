@@ -18,7 +18,7 @@ The program supports two types of wrappers. They are called [Dev mode](#dev-mode
 Base usage is as follows:
 
 ```bash
-cudago [flags] -- <files to compile
+cudago [flags] -- <files to compile>
 ```
 
 You can specify the following flags:
