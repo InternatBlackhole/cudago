@@ -69,7 +69,7 @@ If this is not desired, use the release mode.
 
 To compile the cudago tool, you need to have Go installed on your system.
 Since the tool uses a wrapper of NVRTC, CUDA is also required.
-You need to export or specify the `CGO_CFLAGS` (contains the path to CUDA compiled libraries) and `CGO_LDFLAGS` (contains the path to CUDA compiled libraries) environment variables when compiling.
+You need to export or specify the `CGO_CFLAGS` (contains the path to CUDA include headers) and `CGO_LDFLAGS` (contains the path to CUDA compiled libraries) environment variables when compiling.
 The easiest way to do this is to use `pkg-config`:
 
 ```bash
