@@ -91,14 +91,14 @@ func (dev *Device) GetAttribute(attr DeviceAttribute) (int, Result) {
 	if err != C.CUDA_SUCCESS {
 		return 0, NewCudaError(uint32(err))
 	}
-	return int(attr), nil
+	return int(attri), nil
 }
 
 // ignores error and returns int.Min if error
 func (dev *Device) fastGetAttr(attr DeviceAttribute) int {
 	var attri C.int = math.MinInt32
 	C.cuDeviceGetAttribute(&attri, C.CUdevice_attribute(attr), dev.dev)
-	return int(attr)
+	return int(attri)
 }
 
 func (dev *Device) GetAllAttributes() map[DeviceAttribute]int {
@@ -310,6 +310,7 @@ const (
 	CU_DEVICE_ATTRIBUTE_MAX                                          DeviceAttribute = 136 // Sentinel value to indicate the last value when querying for device attributes.
 )
 
+// TODO: replace with go generate tool (i don't remeber the name of the tool)
 var deviceAttributeStrings = map[DeviceAttribute]string{
 	1:   "CU_DEVICE_ATTRIBUTE_MAX_THREADS_PER_BLOCK",
 	2:   "CU_DEVICE_ATTRIBUTE_MAX_BLOCK_DIM_X",

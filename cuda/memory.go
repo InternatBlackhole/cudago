@@ -93,7 +93,7 @@ func (ptr *DeviceMemory) Free() Result {
 	return nil
 }
 
-func (dev *DeviceMemory) MemcpyToDevice(src unsafe.Pointer, srcSize uint64) Result {
+func (dev *DeviceMemory) MemcpyToDevice(src uintptr, srcSize uint64) Result {
 	if dev == nil || dev.Ptr == 0 {
 		return newInternalError("invalid device memory")
 	}
@@ -111,7 +111,7 @@ func (dev *DeviceMemory) MemcpyToDevice(src unsafe.Pointer, srcSize uint64) Resu
 	return nil
 }
 
-func (dev *DeviceMemory) MemcpyFromDevice(dst unsafe.Pointer, dstSize uint64) Result {
+func (dev *DeviceMemory) MemcpyFromDevice(dst uintptr, dstSize uint64) Result {
 
 	if dev == nil || dev.Ptr == 0 {
 		return newInternalError("invalid device memory")
@@ -216,7 +216,7 @@ func (ptr *HostMemory[T]) AsByteSlice() []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(&ptr.Arr[0])), int(ptr.ActualSize))
 }
 
-func ManagedMemAlloc[T Number](elems uint64, elemSize uint64, flags MemAttachFlag) (*ManagedMemory[T], Result) {
+func ManagedMemAllocFlags[T Number](elems uint64, elemSize uint64, flags MemAttachFlag) (*ManagedMemory[T], Result) {
 	var ptr C.CUdeviceptr
 	size := elems * elemSize
 	stat := C.cuMemAllocManaged(&ptr, C.size_t(size), C.uint(flags))
@@ -225,6 +225,10 @@ func ManagedMemAlloc[T Number](elems uint64, elemSize uint64, flags MemAttachFla
 	}
 
 	return &ManagedMemory[T]{uintptr(ptr), unsafe.Slice((*T)(unsafe.Pointer(uintptr(ptr))), elems), size}, nil
+}
+
+func ManagedMemAlloc[T Number](elems uint64, elemSize uint64) (*ManagedMemory[T], Result) {
+	return ManagedMemAllocFlags[T](elems, elemSize, CU_MEM_ATTACH_GLOBAL)
 }
 
 func (ptr *ManagedMemory[T]) Free() Result {
