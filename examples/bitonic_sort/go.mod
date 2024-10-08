@@ -2,4 +2,7 @@ module bitonic_sort
 
 go 1.21.3
 
-require github.com/InternatBlackhole/cudago v0.0.0-20241002142114-def184927540
+require (
+	github.com/InternatBlackhole/cudago/cuda v1.1.0
+	github.com/InternatBlackhole/cudago/nvrtc v1.0.0
+)
