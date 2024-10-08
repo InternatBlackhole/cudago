@@ -141,7 +141,7 @@ const goPointerType = "uintptr" // reserve: unsafe.Pointer
 
 // key is the C type, value is the Go type
 var typeMap = map[string]string{
-	"int":    "int",
+	"int":    "int32",
 	"char":   "byte",
 	"short":  "int16",
 	"long":   "int64",

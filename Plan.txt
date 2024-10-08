@@ -20,11 +20,12 @@ https://github.com/alecthomas/participle poglej za parser generator
 
 extract stuff from PTX file?
 
-BTW urejanje-4.cu ne dela pravilno za karkoli vecje od ali enako 1 << 16 elems
-
-
 
 Poglej kako bi uporabil env vars v cgodefs files za določanje cuda path namesto kot da uporabljas pkg-config
 
 Kadar moj lib implementira nekaj uz CUDA kar ni v starejši veziji se program ne bo prevedel,
 torej priporočam da se uporablja enaka verzija knjižnice kot je verzija CUDA (v tem primeru 12.6)
+
+
+FIX FOR MULTI KERNEL NOT WORKING CORRECTLY:
+it looks like a go int is 8 bytes so i recommend using the specific length types in Go.

@@ -39,7 +39,7 @@ func main() {
 
 func mainWithCode() int {
 	//get flags from the command line; this programs flags are until '--' is encountered
-	flag.BoolVar(&isProd, "prod", false, "Set to true if you want to compile with production flags")
+	flag.BoolVar(&isProd, "precompile", false, "Set if you want to precompile the .cu files into PTX")
 	flag.StringVar(&nvrtcFlags, "nvcc", "", "Flags to pass to nvcc/nvrtc")
 	flag.StringVar(&packageName, "package", "", "Package name for the generated code and output directory")
 
@@ -95,7 +95,6 @@ func mainWithCode() int {
 			panic(err)
 		}
 		defer outFile.Close()
-
 		args := NewTemplateArgs()
 
 		absName, err := filepath.Abs(file)
