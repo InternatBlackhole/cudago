@@ -264,7 +264,7 @@ const pkgConfigName = "pkg-config"
 func getCorrectCudaPath() (args string) {
 	cudaPath := os.Getenv("CUDA_PATH")
 	if cudaPath != "" {
-		return fmt.Sprintf("-I%s%s -L%s%s -lcuda", cudaPath, includePathPostfix, cudaPath, libsPathPostfix)
+		return fmt.Sprintf("-I%s%s -L%s%s -lcudart", cudaPath, includePathPostfix, cudaPath, libsPathPostfix)
 	}
 
 	println("CUDA_PATH not set, trying to use pkg-config to get CFLAGS and LDFLAGS, will use the latest version found")
