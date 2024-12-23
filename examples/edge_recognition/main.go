@@ -30,9 +30,10 @@ func borders() {
 	panicErr(err)
 
 	img := rgbaToGray(origImage)
-	arr, err := cuda.RegisterAllocationHost(img.Pix, 1, cuda.CU_MEMHOSTREGISTER_READ_ONLY)
-	panicErr(err)
-	defer arr.Free()
+	/// Currently doesn't work
+	//arr, err := cuda.RegisterAllocationHost(img.Pix, 1, cuda.CU_MEMHOSTREGISTER_READ_ONLY)
+	//panicErr(err)
+	//defer arr.Free()
 
 	imgSize := img.Bounds().Size()
 	size := uint64(imgSize.X * imgSize.Y)
