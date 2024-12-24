@@ -22,7 +22,7 @@ func main() {
 	fmt.Println("Init arr")
 
 	//ints := make([]int, 1<<9)
-	ints, err := cuda.ManagedMemAlloc[int32](1<<9, 4, cuda.CU_MEM_ATTACH_HOST)
+	ints, err := cuda.ManagedMemAlloc[int32](1<<9, 4)
 	if err != nil {
 		panic(err)
 	}
@@ -55,7 +55,7 @@ func main() {
 		panic(err)
 	}
 
-	err = cu.AddToAll(grid, block, ints.Ptr, toAdd, len(ints.Arr))
+	err = cu.AddToAll(grid, block, ints.Ptr, int32(toAdd), int32(len(ints.Arr)))
 	if err != nil {
 		panic(err)
 	}
