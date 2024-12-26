@@ -1,4 +1,4 @@
-package main
+package cudago
 
 import (
 	"os"

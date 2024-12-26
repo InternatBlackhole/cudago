@@ -1,4 +1,4 @@
-package main
+package cudago
 
 import (
 	"bufio"
@@ -264,6 +264,7 @@ const pkgConfigName = "pkg-config"
 func getCorrectCudaPath() (args string) {
 	cudaPath := os.Getenv("CUDA_PATH")
 	if cudaPath != "" {
+		//TODO: maybe if CGO_FLAGS and/or CGO_LDFLAGS (or their non CGO equvalents) are used then use them?
 		return fmt.Sprintf("-I%s%s -L%s%s -lcudart", cudaPath, includePathPostfix, cudaPath, libsPathPostfix)
 	}
 
@@ -285,11 +286,11 @@ func getCorrectCudaPath() (args string) {
 		return strings.Trim(string(out), "\n "), nil
 	}
 
-	args, err := check(pkgConfigName, "cuda")
+	args, err := check(pkgConfigName, "cudart")
 	if err != nil {
-		if err.Error() == "package cuda not found" {
+		if err.Error() == "package cudart not found" {
 			for _, n := range validCudaVersions {
-				fmt.Printf("trying to use \"cuda-%s\" as pkg-config package", n)
+				fmt.Printf("trying to use \"cudart-%s\" as pkg-config package", n)
 				args, err = check(pkgConfigName, fmt.Sprintf("cuda-%s", n))
 				if err == nil {
 					break

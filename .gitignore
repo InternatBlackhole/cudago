@@ -1,2 +1,4 @@
 build/
-cudago
+.vscode
+*.code-workspace
+*.txt
