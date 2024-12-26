@@ -1,4 +1,4 @@
-module github.com/InternatBlackhole/cudago
+module github.com/InternatBlackhole/cudago/tool
 
 go 1.23.4
 
