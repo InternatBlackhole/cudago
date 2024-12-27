@@ -1,5 +1,7 @@
 # CUDA GO
 
+**WARNING: This tool and wrappers currently only support CUDA version 12.6**
+
 CUDA GO is a set of wrappers for the CUDA library in GO that also can
 generate wrappers for CUDA `.cu` files, such that their kernels can easily be executed in GO.
 It wraps the most commonly used functions from the CUDA driver API, and (in the future) the runtime API,
@@ -18,13 +20,13 @@ The program supports two types of wrappers. They are called [Dev mode](#dev-mode
 Base usage is as follows:
 
 ```bash
-cudago [flags] -- <files to compile>
+cudago [flags] -- <files to compile ...>
 ```
 
 You can specify the following flags:
 
 ```bash
-Usage of ./cudago:
+Usage of CudaGo:
   -nvcc string
         Flags to pass to nvcc/nvrtc
   -package string
@@ -67,20 +69,20 @@ If this is not desired, use the release mode.
 - Installed Go version 1.20 or higher
 - pkg-config installed on your system (recommended)
 
-### Compilation of cudago
+### Installation of cudago
 
 ***Note:*** Currently the only supported platform is Linux. Windows and MacOS compilation hasn't been tested. You are welcome to try it out and open a pull request to make it work.
 
-To compile the cudago tool, you need to have Go installed on your system.
+To install (and build) the cudago tool, you need to have Go installed on your system.
 Since the tool uses a wrapper of NVRTC, CUDA is also required.
-You need to export or specify the `CGO_CFLAGS` (contains the path to CUDA include headers) and `CGO_LDFLAGS` (contains the path to CUDA compiled libraries) environment variables when compiling.
+You need to export or specify the `CGO_CFLAGS` (contains the path to CUDA include headers) and `CGO_LDFLAGS` (contains the path to CUDA compiled libraries) environment variables when installing (or building).
 The easiest way to do this is to use `pkg-config`:
 
 _refer to chapter [CUDA GO Usage](#CUDA-GO-usage)_
 
 ```bash
-export CGO_CFLAGS=$(pkg-config --cflags cudart-12.6) # or any other version
-export CGO_LDFLAGS=$(pkg-config --libs cudart-12.6) # or any other version
+export CGO_CFLAGS=$(pkg-config --cflags cudart-12.6) # or other version
+export CGO_LDFLAGS=$(pkg-config --libs cudart-12.6) # or other version
 ```
 
-Then just run the `go build` command with all your desired flags.
+Then just run the `go build` command with all your desired flags if you wish to build or `go install github.com/InternatBlackhole/cudago/CudaGo@latest` to install the tool into your `$GOPATH/bin` directory.
