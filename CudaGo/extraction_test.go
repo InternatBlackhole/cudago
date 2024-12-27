@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bufio"
 	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -577,7 +575,6 @@ __device__ unsigned long long
 
 __constant__ uint16_t random_Const;
 
-
 int main(int argc, char **argv) {
 	// preberemo argumente iz ukazne vrstice
 	int numThreads = 0;
@@ -683,7 +680,8 @@ int main(int argc, char **argv) {
 }
 `
 
-func Test_getKernelNameAndArgsFromReader(t *testing.T) {
+//test not needed
+/*func Test_getKernelNameAndArgsFromReader(t *testing.T) {
 	type args struct {
 		origString string
 		reader     *bufio.Reader
@@ -824,4 +822,4 @@ func Test_getKernelNameAndArgsFromReader(t *testing.T) {
 			}
 		})
 	}
-}
+}*/

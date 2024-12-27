@@ -128,6 +128,9 @@ import (
 )
 {{$key := .GetKey}}
 
+//here just to force usage of unsafe package
+var __useless_var__ unsafe.Pointer = nil
+
 const (
 	Key{{$key | title}} = "{{$key}}"
 )
@@ -173,10 +176,12 @@ func {{.Name}}(grid, block cuda.Dim3, {{argPrint .GoArgs ", "}}) error {
 	if err != nil {
 		return err
 	}
+	{{if gt (len .GoArgs) 0 }}
 	params := {{$argsName}}Args{
 	{{range .GoArgs}}    {{.Name}}: {{.Name}},
 	{{end}}
 	}
+	{{end}}
 	return kern.Launch(grid, block, {{passArgsPtrs .GoArgs "params"}})
 }
 
@@ -189,10 +194,12 @@ func {{.Name}}Ex(grid, block cuda.Dim3, sharedMem uint64, stream *cuda.Stream, {
 	if err != nil {
 		return err
 	}
+	{{if gt (len .GoArgs) 0}}
 	params := {{$argsName}}Args{
 	{{range .GoArgs}}    {{.Name}}: {{.Name}},
 	{{end}}
 	}
+	{{end}}
 	return kern.LaunchEx(grid, block, sharedMem, stream, {{passArgsPtrs .GoArgs "params"}})
 }
 `
