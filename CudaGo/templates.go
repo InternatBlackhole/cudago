@@ -129,7 +129,7 @@ import (
 {{$key := .GetKey}}
 
 //here just to force usage of unsafe package
-var __useless_var__ unsafe.Pointer = nil
+var __{{.FileName}}_useless_var__ unsafe.Pointer = nil
 
 const (
 	Key{{$key | title}} = "{{$key}}"
