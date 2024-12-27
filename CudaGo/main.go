@@ -22,6 +22,7 @@ var (
 	nvrtcFlags     = ""
 	packageName    = "" //output directory and package name
 	filesToCompile []string
+	doAbsPaths     = false //flag to specify if paths to .cu files should be relative to working dir. Applies only in dev mode (non precompile)
 	//templates are in templates.go
 
 	validPackageNameRegex = regexp.MustCompile(`[^[:digit:]][[:alnum:]]*`)
@@ -42,6 +43,7 @@ func mainWithCode() int {
 	flag.BoolVar(&isProd, "precompile", false, "Set if you want to precompile the .cu files into PTX")
 	flag.StringVar(&nvrtcFlags, "nvcc", "", "Flags to pass to nvcc/nvrtc")
 	flag.StringVar(&packageName, "package", "", "Package name for the generated code and output directory")
+	flag.BoolVar(&doAbsPaths, "abspath", false, "The .cu files specified should be refrenced by absolute paths otherwise they have to be in the same directory as the executable. Applies only when -precompile is not used")
 
 	flag.Parse()
 
@@ -97,22 +99,72 @@ func mainWithCode() int {
 		defer outFile.Close()
 		args := NewTemplateArgs()
 
-		absName, err := filepath.Abs(file)
-		if err != nil {
-			panic(err)
+		args.SetFileName(base) // first fill the filename so that funcs can use it
+		//args.SetPath(absName)
+		args.Options = nvrtcFlagsParsed
+
+		stat, err := srcFile.Stat()
+		panicErr(err)
+		fileSize := stat.Size()
+		src := bufio.NewReader(srcFile)
+
+		buf := make([]byte, fileSize)
+		read, err := io.ReadFull(src, buf)
+		panicErr(err)
+		if read != int(fileSize) {
+			panic("read less bytes than expected")
 		}
 
-		args.SetFileName(base) // first fill the filename so that funcs can use it
-		args.SetPath(absName)
-		args.Options = nvrtcFlagsParsed
-		fillTemplateArgsFromFile(srcFile, args)
+		args.SetPackage(packageName)
+
+		err = getKernelNameAndArgs(string(buf), func(name string, argss []string) (bool, error) {
+			k := args.NewFunc()
+			k.SetName(name)
+			k.SetArgs(argss)
+			k.IsKernel = true
+			args.AddFunc(k)
+			return true, nil //continue
+		})
+		panicErr(err)
+
+		err = getDefinedVariables(string(buf), func(name, ctyp string, typ definedLocationType) bool {
+			switch typ {
+			case TYPE_DEVICE_CONST:
+				args.AddConstant(name, ctyp)
+			case TYPE_DEVICE_VAR:
+				args.AddVariable(name, ctyp)
+			}
+			return true
+		})
+		if err != errNoMatch {
+			panic(err)
+		}
 
 		var autoloadTemplate autoloadTemplate
 
 		if isProd {
 			autoloadTemplate = prodAutoLoad
+
+			program, err := nvrtc.CreateProgram(string(buf), srcFile.Name(), nil)
+			nvrtcPanic(err, program)
+			defer program.Destroy()
+			err = program.Compile(nvrtcFlagsParsed)
+			nvrtcPanic(err, program)
+
+			ptx, err := program.GetPTX()
+			nvrtcPanic(err, program)
+			args.SetPTXCode(string(ptx))
 		} else {
 			autoloadTemplate = devAutoLoad
+			if doAbsPaths {
+				absName, err := filepath.Abs(file)
+				if err != nil {
+					panic(err)
+				}
+				args.SetPath(absName)
+			} else {
+				args.SetPath(filepath.Join(".", file))
+			}
 		}
 
 		err = createWrapper(args, outFile, autoloadTemplate)
@@ -129,59 +181,6 @@ func mainWithCode() int {
 	panicErr(err)
 
 	return 0
-}
-
-func fillTemplateArgsFromFile(file *os.File, template *TemplateArgs) {
-	//TODO: look at bufio.Scanner and SplitFunc
-	//reader := bufio.NewScanner(src)
-
-	stat, err := file.Stat()
-	panicErr(err)
-	fileSize := stat.Size()
-	src := bufio.NewReader(file)
-
-	buf := make([]byte, fileSize)
-	read, err := io.ReadFull(src, buf)
-	panicErr(err)
-	if read != int(fileSize) {
-		panic("read less bytes than expected")
-	}
-
-	program, err := nvrtc.CreateProgram(string(buf), file.Name(), nil)
-	nvrtcPanic(err, program)
-	defer program.Destroy()
-	err = program.Compile(nvrtcFlagsParsed)
-	nvrtcPanic(err, program)
-
-	ptx, err := program.GetPTX()
-	nvrtcPanic(err, program)
-
-	err = getKernelNameAndArgs(string(buf), func(name string, args []string) (bool, error) {
-		k := template.NewFunc()
-		k.SetName(name)
-		k.SetArgs(args)
-		k.IsKernel = true
-		template.AddFunc(k)
-		return true, nil //continue
-	})
-	panicErr(err)
-
-	err = getDefinedVariables(string(buf), func(name, ctyp string, typ definedLocationType) bool {
-		switch typ {
-		case TYPE_DEVICE_CONST:
-			template.AddConstant(name, ctyp)
-		case TYPE_DEVICE_VAR:
-			template.AddVariable(name, ctyp)
-		}
-		return true
-	})
-	if err != errNoMatch {
-		panic(err)
-	}
-
-	template.SetPTXCode(string(ptx))
-	template.SetPackage(packageName)
-	//return template
 }
 
 func createWrapper(kernel *TemplateArgs, outFile *os.File, autoload autoloadTemplate) error {
