@@ -17,6 +17,8 @@ import (
 	"github.com/InternatBlackhole/cudago/nvrtc"
 )
 
+const TOOL_VERSION = "1.0.5"
+
 var (
 	isProd         = false
 	nvrtcFlags     = ""
@@ -45,7 +47,14 @@ func mainWithCode() int {
 	flag.StringVar(&packageName, "package", "", "Package name for the generated code and output directory")
 	flag.BoolVar(&doAbsPaths, "abspath", false, "The .cu files specified should be refrenced by absolute paths otherwise they have to be in the same directory as the executable. Applies only when -precompile is not used")
 
+	printVersion := flag.Bool("version", false, "Print CudaGo version and exit")
+
 	flag.Parse()
+
+	if *printVersion {
+		fmt.Printf("CudaGo version: %s\n", TOOL_VERSION)
+		return 0
+	}
 
 	if packageName == "" {
 		fmt.Fprintln(os.Stderr, "No package name provided")
