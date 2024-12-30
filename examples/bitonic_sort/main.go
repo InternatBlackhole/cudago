@@ -11,7 +11,12 @@ import (
 )
 
 func main() {
-	size := int32(1 << 15)
+	size := int32(1 << 12)
+	dev, err := cuda.Init(0)
+	if err != nil {
+		panic(err)
+	}
+	defer dev.Close()
 	multiKernel(int32(math.Min(1024, float64(size))), size)
 }
 
@@ -19,16 +24,18 @@ func multiKernel(numThreads, tableLength int32) {
 	var err error
 	numBlocks := (tableLength/2-1)/numThreads + 1
 
-	intSize := uint64(unsafe.Sizeof(int32(0)))
+	intSize := uint64(4) //uint64(unsafe.Sizeof(int32(0)))
 	memSize := uint64(tableLength) * intSize
 
-	//a := make([]int32, tableLength)
+	//Allocate host memory
 	ha := make([]int32, tableLength)
 
+	//Optimization for faster data transfer between host and device, not needed to run
 	has, err := cuda.RegisterAllocationHost(ha, intSize, cuda.CU_MEMHOSTREGISTER_DEVICEMAP)
 	panicErr(err)
 	defer has.Free()
 
+	//Allocate memory on device
 	da, err := cuda.DeviceMemAlloc(memSize)
 	panicErr(err)
 	defer da.Free()
@@ -36,107 +43,65 @@ func multiKernel(numThreads, tableLength int32) {
 	fmt.Println("Generating random numbers")
 
 	for i := int32(0); i < tableLength; i++ {
-		//a[i] = rand.Int31()
 		ha[i] = rand.Int31()
 		//fmt.Println(ha[i])
 	}
 
 	fmt.Println("Random numbers generated")
 
+	//Create start event
 	start, err := cuda.NewEvent()
 	panicErr(err)
 	defer start.Destroy()
 
+	//Create end event
 	end, err := cuda.NewEvent()
 	panicErr(err)
 	defer end.Destroy()
 
-	fmt.Println("Starting multi kernel test on device")
+	fmt.Println("Starting multi kernel on device")
 
+	//Record start
 	err = start.Record(nil)
 	panicErr(err)
 
+	//Start copy to device
 	err = da.MemcpyToDevice(uintptr(unsafe.Pointer(&ha[0])), memSize)
 	panicErr(err)
 
 	gridSize, blockSize := cuda.Dim3{X: uint32(numBlocks), Y: 1, Z: 1}, cuda.Dim3{X: uint32(numThreads), Y: 1, Z: 1}
-	err = cuda_stuff.BitonicSortStartEx(gridSize, blockSize, uint64(2*blockSize.X*uint32(intSize)), nil, da.Ptr, int32(tableLength))
-	//err = cuda_stuff.BitonicSortStart(gridSize, blockSize, da.Ptr, int(tableLength))
-	panicErr(err)
+	bytesLocalMemory := uint64(2 * blockSize.X * uint32(intSize))
 
-	for k := int32(4 * blockSize.X); k <= tableLength; k <<= 2 {
-		for j := k / 2; j > int32(2*blockSize.X); j >>= 1 {
-			err = cuda_stuff.BitonicSortMiddleEx(gridSize, blockSize, uint64(2*blockSize.X*uint32(intSize)), nil, da.Ptr, int32(tableLength), int32(k), int32(j))
-			//err = cuda_stuff.BitonicSortMiddle(gridSize, blockSize, da.Ptr, int(tableLength), int(k), int(j))
-			panicErr(err)
+	cuda_stuff.BitonicSortStartEx(gridSize, blockSize, bytesLocalMemory, nil, da.Ptr, int32(tableLength)) // k = 2 ... 2 * blockSize.x
+	for k := 4 * int32(blockSize.X); k <= int32(tableLength); k <<= 1 {                                   // k = 4 * blockSize ... tableLength
+		for j := k / 2; j >= 2*int32(blockSize.X); j >>= 1 { //   j = k/2 ... 2 * blockSize.x
+			err = cuda_stuff.BitonicSortMiddleEx(gridSize, blockSize, bytesLocalMemory, nil, da.Ptr, int32(tableLength), k, j)
+			if err != nil {
+				panic(err)
+			}
 		}
-		err = cuda_stuff.BitonicSortFinishEx(gridSize, blockSize, uint64(2*blockSize.X*uint32(intSize)), nil, da.Ptr, int32(tableLength), int32(k))
-		//err = cuda_stuff.BitonicSortFinish(gridSize, blockSize, da.Ptr, int(tableLength), int(k))
-		panicErr(err)
+		cuda_stuff.BitonicSortFinishEx(gridSize, blockSize, bytesLocalMemory, nil, da.Ptr, int32(tableLength), k) //   j = 2 * blockSize.x ... 1
 	}
 
-	err = cuda.CurrentContextSynchronize()
-	panicErr(err)
-
+	//Copy results from device to host
 	err = da.MemcpyFromDevice(uintptr(unsafe.Pointer(&ha[0])), memSize)
 	panicErr(err)
 
+	//Trigger end event
 	err = end.Record(nil)
 	panicErr(err)
 
+	//Wait for end event to be triggered
 	err = end.Synchronize()
 	panicErr(err)
 
+	//Calculate time between start and end events
 	elapsedTimeDevice, err := cuda.EventElapsedTime(start, end)
 	panicErr(err)
-	fmt.Printf("Multi kernel test on device finished. Elapsed time: %f ms\n", elapsedTimeDevice)
-
-	//fmt.Println("Starting multi kernel test on host")
-
-	//timeStart := time.Now()
-
-	/*var i2, dec, temp int32
-	for k := int32(2); k <= tableLength; k <<= 1 {
-		for j := k / 2; j > 0; j >>= 1 {
-			for i1 := int32(0); i1 < tableLength; i1++ {
-				i2 = i1 ^ j
-				dec = i1 & k
-				if i2 > i1 {
-					if (dec == 0 && a[i1] > a[i2]) || (dec != 0 && a[i1] < a[i2]) {
-						temp = a[i1]
-						a[i1] = a[i2]
-						a[i2] = temp
-					}
-				}
-			}
-		}
-	}*/
-
-	//timeEnd := time.Now()
-	//elapsedTimeHost := timeEnd.Sub(timeStart)
-	//fmt.Printf("Multi kernel test on host finished. Elapsed time: %v ms\n", elapsedTimeHost.Nanoseconds()/1e6)
-
-	//okDevice, okHost, prevDev, prevHost := true, true, ha[0], a[0]
-	//i := int32(0)
-	//for ; i < tableLength; i++ {
-	//	//okDevice = okDevice && (prevDev <= ha[i])
-	//	//okHost = okHost && (prevHost <= a[i])
-	//	if ha[i] != a[i] {
-	//		fmt.Printf("Host: %d Device: %d\n", ha[i], a[i])
-	//		//break
-	//	}
-	//}
-
-	//if i < tableLength {
-	//	fmt.Println("Host sorting and device sorting are different")
-	//} else {
-	//	fmt.Println("Host sorting and device sorting are the same")
-	//}
-
-	//fmt.Println("Device sort is correct:", okDevice)
-	//fmt.Println("Host sort is correct:", okHost)
+	fmt.Printf("Multi kernel on device finished. Elapsed time: %f ms\n", elapsedTimeDevice)
 
 	fmt.Println("Printing results")
+	fmt.Println("ha size:", len(ha))
 	prev := ha[0]
 	fmt.Println(prev)
 	ok := true

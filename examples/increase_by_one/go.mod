@@ -1,6 +1,6 @@
 module increase_by_one
 
-go 1.21.3
+go 1.22.1
 
 require (
 	github.com/InternatBlackhole/cudago/cuda v1.1.0

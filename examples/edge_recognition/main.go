@@ -13,16 +13,19 @@ import (
 )
 
 func main() {
+	//Initialize CUDA API on OS thread
 	var err error
 	dev, err := cuda.Init(0)
 	panicErr(err)
 	defer dev.Close()
 
-	borders()
+	jpgPath := os.Args[1]
+
+	borders(jpgPath)
 }
 
-func borders() {
-	reader, err := os.Open("test10.jpg")
+func borders(jpgPath string) {
+	reader, err := os.Open(jpgPath)
 	panicErr(err)
 	defer reader.Close()
 
@@ -30,6 +33,7 @@ func borders() {
 	panicErr(err)
 
 	img := rgbaToGray(origImage)
+	//Optimization for faster memory transfers
 	arr, err := cuda.RegisterAllocationHost(img.Pix, 1, cuda.CU_MEMHOSTREGISTER_DEVICEMAP)
 	panicErr(err)
 	defer arr.Free()

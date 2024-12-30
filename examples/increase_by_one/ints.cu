@@ -8,6 +8,7 @@ __global__ void addToAll(int *orig, int toAdd, int size) {
     if (idx < size) {
         int org = orig[idx];
         orig[idx] = org + toAdd;
+        //prints from kernel intermediate results
         printf("idx = %d, orig = %d, newOrig = %d\n", idx, org, orig[idx]);
     }
 }
