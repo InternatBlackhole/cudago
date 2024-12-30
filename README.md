@@ -67,7 +67,7 @@ Then just run the `go build` command with all your desired flags if you wish to 
 
 To use the wrapper generator you need to install or build CudaGo as described in [Installation](#installation).
 
-The program supports two types of wrappers. They are called [Dev mode](#dev-mode-vs-release-mode--performance-mode) and [Release mode](#dev-mode-vs-release-mode--performance-mode).
+The program supports two types of wrappers. They are called [Precompile](#precompile-mode-vs-non-precompile) and [Non Precompile](#precompile-mode-vs-non-precompile).
 
 Base usage is as follows:
 
@@ -100,8 +100,9 @@ or have `extern "C"` in front of the kernel declaration.
 All kernels also have to be top level standalone functions. Currently the wrapper does not support kernels that are part of a class or a struct
 or are templates.
 
-### Dev mode vs Release mode / Performance mode
+### Precompile mode vs Non Precompile
 
-The difference is that the debug mode does (onetime) runtime compilation of the CUDA code, while the release mode compiles the CUDA code at compile time (when running the tool).
-By using the debug mode, you can easily change the CUDA code without recompiling the GO code, just keep the file at the same location and don't add any new kernels or modify the existing ones. This also impacts performance, since the first inovaction of any kernel will compile code.
-If this is not desired, use the release mode.
+The difference is that non precompile mode generates a wrapper of CUDA code that compiles the specified file when the first kernel from that file is called in the program, while the precompile mode compiles the CUDA code at when running the tool.
+
+By using the non precompile mode, you can easily change the CUDA kernels without rerunnig CudaGo, just keep the file at the same direcotry as the main package or executable and don't add any new kernels or modify the existing ones. This also impacts performance, since the first inovaction of any kernel will compile code.
+If this is not desired, use precompile mode.
