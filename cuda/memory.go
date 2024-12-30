@@ -93,7 +93,7 @@ func (ptr *DeviceMemory) Free() Result {
 	return nil
 }
 
-func (dev *DeviceMemory) MemcpyToDevice(src uintptr, srcSize uint64) Result {
+func (dev *DeviceMemory) MemcpyToDevice(src unsafe.Pointer, srcSize uint64) Result {
 	if dev == nil || dev.Ptr == 0 {
 		return newInternalError("invalid device memory")
 	}
@@ -102,7 +102,7 @@ func (dev *DeviceMemory) MemcpyToDevice(src uintptr, srcSize uint64) Result {
 		return newInternalError("source size is greater than device memory size")
 	}
 
-	stat := C.cuMemcpyHtoD(C.ulonglong(dev.Ptr), unsafe.Pointer(src), C.size_t(srcSize))
+	stat := C.cuMemcpyHtoD(C.ulonglong(dev.Ptr), src, C.size_t(srcSize))
 
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
@@ -111,7 +111,7 @@ func (dev *DeviceMemory) MemcpyToDevice(src uintptr, srcSize uint64) Result {
 	return nil
 }
 
-func (dev *DeviceMemory) MemcpyFromDevice(dst uintptr, dstSize uint64) Result {
+func (dev *DeviceMemory) MemcpyFromDevice(dst unsafe.Pointer, dstSize uint64) Result {
 
 	if dev == nil || dev.Ptr == 0 {
 		return newInternalError("invalid device memory")
@@ -121,7 +121,7 @@ func (dev *DeviceMemory) MemcpyFromDevice(dst uintptr, dstSize uint64) Result {
 		return newInternalError("destination size is greater than device memory size")
 	}
 
-	stat := C.cuMemcpyDtoH(unsafe.Pointer(dst), C.ulonglong(dev.Ptr), C.size_t(dstSize))
+	stat := C.cuMemcpyDtoH(dst, C.ulonglong(dev.Ptr), C.size_t(dstSize))
 
 	if stat != C.CUDA_SUCCESS {
 		return NewCudaError(uint32(stat))
