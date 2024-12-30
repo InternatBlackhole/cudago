@@ -66,7 +66,7 @@ func multiKernel(numThreads, tableLength int32) {
 	panicErr(err)
 
 	//Start copy to device
-	err = da.MemcpyToDevice(uintptr(unsafe.Pointer(&ha[0])), memSize)
+	err = da.MemcpyToDevice(unsafe.Pointer(&ha[0]), memSize)
 	panicErr(err)
 
 	gridSize, blockSize := cuda.Dim3{X: uint32(numBlocks), Y: 1, Z: 1}, cuda.Dim3{X: uint32(numThreads), Y: 1, Z: 1}
@@ -84,7 +84,7 @@ func multiKernel(numThreads, tableLength int32) {
 	}
 
 	//Copy results from device to host
-	err = da.MemcpyFromDevice(uintptr(unsafe.Pointer(&ha[0])), memSize)
+	err = da.MemcpyFromDevice(unsafe.Pointer(&ha[0]), memSize)
 	panicErr(err)
 
 	//Trigger end event

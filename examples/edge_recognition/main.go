@@ -75,15 +75,14 @@ func borders(jpgPath string) {
 	err = start.Record(nil)
 	panicErr(err)
 
-	err = grayImg.MemcpyToDevice(uintptr(unsafe.Pointer(&img.Pix[0])), uint64(len(img.Pix)))
+	err = grayImg.MemcpyToDevice(unsafe.Pointer(&img.Pix[0]), uint64(len(img.Pix)))
 	panicErr(err)
 
 	err = cuda_stuff.Borders(dimGrid, dimBlock, grayImg.Ptr, int32(imgSize.X), int32(imgSize.Y), grad.Ptr, int32(size))
 	panicErr(err)
 	defer cuda_stuff.CloseLibrary(cuda_stuff.KeyEdges)
 
-	//err = grad.MemcpyFromDevice(finalImg)
-	err = grad.MemcpyFromDevice(uintptr(unsafe.Pointer(&finalImg.Arr[0])), uint64(len(finalImg.Arr)))
+	err = grad.MemcpyFromDevice(unsafe.Pointer(&finalImg.Arr[0]), uint64(len(finalImg.Arr)))
 	panicErr(err)
 
 	err = end.Record(nil)
