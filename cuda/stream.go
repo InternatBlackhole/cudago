@@ -6,6 +6,7 @@ import (
 	"unsafe"
 )
 
+// Represents a CUDA stream
 type Stream struct {
 	stream C.CUstream
 }

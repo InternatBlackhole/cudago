@@ -15,6 +15,7 @@ var (
 	//ErrInvalidParam   = newStaticError(errors.New("invalid parameter"))
 )
 
+// Error wrapper for native CUDA error
 type Error struct {
 	res C.CUresult
 }
@@ -23,7 +24,7 @@ type internalError struct {
 	error
 }
 
-// is also an error, Stringer
+// Error indicator from CUDA API calls
 type Result interface {
 	error
 	Code() uint32
@@ -32,6 +33,7 @@ type Result interface {
 	String() string
 }
 
+// NewCudaError creates a new CUDA error from a CUDA error code
 func NewCudaError(err uint32) Result {
 	return Error{C.CUresult(err)}
 }
@@ -44,18 +46,22 @@ func newInternalError(msg string) Result {
 	return internalError{errors.New(msg)}
 }
 
+// Returns the error message with the error name
 func (r Error) String() string {
 	return r.Error()
 }
 
+// Returns the error message with the error name
 func (r Error) Error() string {
 	return r.ErrorName() + ": " + r.ErrorString()
 }
 
+// Returns the error code
 func (r Error) Code() uint32 {
 	return uint32(r.res)
 }
 
+// Returns the error message
 func (r Error) ErrorString() string {
 	var str *C.char
 	err := C.cuGetErrorString(r.res, &str)
@@ -65,6 +71,7 @@ func (r Error) ErrorString() string {
 	return C.GoString(str)
 }
 
+// Returns the error name
 func (r Error) ErrorName() string {
 	var str *C.char
 	err := C.cuGetErrorName(r.res, &str)

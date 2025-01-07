@@ -1,3 +1,7 @@
+// A wrapper around CUDA Driver API 12.6.
+//
+// Wraps essential CUDA functions for memory management, kernel execution, error handling and more.
+// See the CUDA API documentation for more information.
 package cuda
 
 /*
@@ -16,6 +20,8 @@ package cuda
 //#cgo windows CFLAGS: -IC:/cuda/include
 import "C"
 
+// NativeHandle is an interface for CUDA objects that have a native pointer.
+// Exposes it as a uintptr.
 type NativeHandle interface {
 	NativePointer() uintptr
 }

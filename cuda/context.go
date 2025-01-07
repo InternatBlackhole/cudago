@@ -4,20 +4,40 @@ package cuda
 import "C"
 import "unsafe"
 
+// Wrapper for CUDA Context
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX
 type Context struct {
 	ctx C.CUcontext
 	//device *Device
 }
 
+// Wrapper for CUDA Primary Context
+
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__PRIMARY__CTX.html#group__CUDA__PRIMARY__CTX
 type PrimaryCtx struct {
 	Context
 	device *Device
 }
 
+// Flags for CUDA Contexts.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX
 type ContextFlags uint32
+
+// Limit number for CUDA Contexts.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g9f2d47d1745752aa16da7ed0d111b6a8
 type Limit int32
+
+// Cache configuration for CUDA Contexts.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g54699acf7e2ef27279d013ca2095f4a3
 type CacheConfig uint32
 
+// Create a new CUDA context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g65dc0012348bc84810e2103a40d8e2cf
 func NewContext(flags ContextFlags, device *Device) (*Context, Result) {
 	var ctx C.CUcontext
 	stat := C.cuCtxCreate(&ctx, C.uint(flags), device.dev)
@@ -29,11 +49,18 @@ func NewContext(flags ContextFlags, device *Device) (*Context, Result) {
 	return &Context{ctx}, nil
 }
 
+// Utility type for creating a new CUDA context with affinity parameters.
+// Used in NewContext_v3.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g2a5b565b1fb067f319c98787ddfa4016
 type AffinityParam struct {
 	Param AffinityType
 	Value int
 }
 
+// Create a new CUDA context with execution affinity.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g2a5b565b1fb067f319c98787ddfa4016
 func NewContext_v3(flags ContextFlags, device *Device, params ...AffinityParam) (*Context, Result) {
 	var ctx C.CUcontext
 	var cparams []C.CUexecAffinityParam
@@ -49,14 +76,24 @@ func NewContext_v3(flags ContextFlags, device *Device, params ...AffinityParam) 
 	return &Context{ctx}, nil
 }
 
+// THIS FUNCTION IS CURRENTLY NOT IMPLEMENTED.
+// DO NOT USE.
+//
+// Create a new CUDA context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1gd84cbb0ad9470d66dc55e0830d56ef4d
 func NewContext_v4() {
 	// TODO: Implement cuCtxCreate_v4
 }
 
+// Gets the native handle of the CUDA context.
 func (c *Context) NativePointer() uintptr {
 	return uintptr(unsafe.Pointer(c.ctx))
 }
 
+// Destroy the CUDA context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g27a365aebb0eb548166309f58a1e8b8e
 func (c *Context) Destroy() Result {
 	stat := C.cuCtxDestroy(c.ctx)
 
@@ -67,6 +104,9 @@ func (c *Context) Destroy() Result {
 	return nil
 }
 
+// Get's the context's API version.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g088a90490dafca5893ef6fbebc8de8fb
 func (c *Context) GetApiVersion() (version uint32, err Result) {
 	var _version C.uint
 	stat := C.cuCtxGetApiVersion(c.ctx, &_version)
@@ -78,6 +118,9 @@ func (c *Context) GetApiVersion() (version uint32, err Result) {
 	return uint32(_version), nil
 }
 
+// Returns the preferred cache configuration for the current context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g40b6b141698f76744dea6e39b9a25360
 func (c *Context) GetCacheConfig() (CacheConfig, Result) {
 	var config C.CUfunc_cache
 	stat := C.cuCtxGetCacheConfig(&config)
@@ -89,6 +132,9 @@ func (c *Context) GetCacheConfig() (CacheConfig, Result) {
 	return CacheConfig(config), nil
 }
 
+// Sets the preferred cache configuration for the current context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g54699acf7e2ef27279d013ca2095f4a3
 func (c *Context) SetCacheConfig(config CacheConfig) Result {
 	stat := C.cuCtxSetCacheConfig(C.CUfunc_cache(config))
 
@@ -99,6 +145,9 @@ func (c *Context) SetCacheConfig(config CacheConfig) Result {
 	return nil
 }
 
+// Records an event.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1gf3ee63561a7a371fa9d4dc0e31f94afd
 func (c *Context) RecordEvent(event *Event) Result {
 	stat := C.cuCtxRecordEvent(c.ctx, event.event)
 	if stat != C.CUDA_SUCCESS {
@@ -107,6 +156,9 @@ func (c *Context) RecordEvent(event *Event) Result {
 	return nil
 }
 
+// Make context wait on an event.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1gcf64e420275a8141b1f12bfce3f478f9
 func (c *Context) WaitEvent(event *Event) Result {
 	stat := C.cuCtxWaitEvent(c.ctx, event.event)
 	if stat != C.CUDA_SUCCESS {
@@ -115,6 +167,9 @@ func (c *Context) WaitEvent(event *Event) Result {
 	return nil
 }
 
+// Returns the unique Id associated with the context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g32f492cd6c3f90af0d6935b294392db5
 func (c *Context) GetId() (id uint64, err Result) {
 	var _id C.ulonglong
 	stat := C.cuCtxGetId(c.ctx, &_id)
@@ -126,6 +181,9 @@ func (c *Context) GetId() (id uint64, err Result) {
 	return uint64(_id), nil
 }
 
+// Returns the device ID for the current context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g4e84b109eba36cdaaade167f34ae881e
 func GetCurrentContextDevice() (*Device, Result) {
 	var dev C.CUdevice
 	stat := C.cuCtxGetDevice(&dev)
@@ -137,6 +195,9 @@ func GetCurrentContextDevice() (*Device, Result) {
 	return &Device{dev}, nil
 }
 
+// Returns the execution affinity setting for the current context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g83421924a20536a4df538111cf61b405
 func GetCurrentContextExecAffinity(adType AffinityType) (value int, err Result) {
 	_value := C.CUexecAffinityParam{}
 	stat := C.cuCtxGetExecAffinity(&_value, C.CUexecAffinityType(adType))
@@ -148,6 +209,9 @@ func GetCurrentContextExecAffinity(adType AffinityType) (value int, err Result) 
 	return *(*int)(unsafe.Pointer(&_value.param[0])), nil
 }
 
+// Returns the flags for the current context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1gf81eef983c1e3b2ef4f166d7a930c86d
 func GetCurrentContextFlags() (ContextFlags, Result) {
 	var flags C.uint
 	stat := C.cuCtxGetFlags(&flags)
@@ -159,6 +223,9 @@ func GetCurrentContextFlags() (ContextFlags, Result) {
 	return ContextFlags(flags), nil
 }
 
+// Sets the flags for the current context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g66655c37602c8628eae3e40c82619f1e
 func SetCurrentContextFlags(flags ContextFlags) Result {
 	stat := C.cuCtxSetFlags(C.uint(flags))
 
@@ -169,6 +236,9 @@ func SetCurrentContextFlags(flags ContextFlags) Result {
 	return nil
 }
 
+// Returns resource limits.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g9f2d47d1745752aa16da7ed0d111b6a8
 func GetCurrentContextLimit(limit Limit) (value uint64, err Result) {
 	var _value C.size_t
 	stat := C.cuCtxGetLimit(&_value, C.CUlimit(limit))
@@ -180,6 +250,9 @@ func GetCurrentContextLimit(limit Limit) (value uint64, err Result) {
 	return uint64(_value), nil
 }
 
+// Set resource limits.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g0651954dfb9788173e60a9af7201e65a
 func SetCurrentContextLimit(limit Limit, value uint64) Result {
 	stat := C.cuCtxSetLimit(C.CUlimit(limit), C.size_t(value))
 
@@ -190,6 +263,9 @@ func SetCurrentContextLimit(limit Limit, value uint64) Result {
 	return nil
 }
 
+// Returns numerical values that correspond to the least and greatest stream priorities.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g137920ab61a71be6ce67605b9f294091
 func GetCurrentContextStreamPriorityRange() (low int, high int, err Result) {
 	var _low, _high C.int
 	stat := C.cuCtxGetStreamPriorityRange(&_low, &_high)
@@ -201,6 +277,9 @@ func GetCurrentContextStreamPriorityRange() (low int, high int, err Result) {
 	return int(_low), int(_high), nil
 }
 
+// Returns the CUDA context bound to the calling CPU thread.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g8f13165846b73750693640fb3e8380d0
 func GetCurrentContext() (*Context, Result) {
 	var ctx C.CUcontext
 	stat := C.cuCtxGetCurrent(&ctx)
@@ -212,6 +291,9 @@ func GetCurrentContext() (*Context, Result) {
 	return &Context{ctx}, nil
 }
 
+// Binds the specified CUDA context to the calling CPU thread.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1gbe562ee6258b4fcc272ca6478ca2a2f7
 func SetCurrentContext(ctx *Context) Result {
 	stat := C.cuCtxSetCurrent(ctx.ctx)
 
@@ -222,6 +304,9 @@ func SetCurrentContext(ctx *Context) Result {
 	return nil
 }
 
+// Resets all persisting lines in cache to normal status.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1gb529532b5b1aef808295a6d1d18a0823
 func ResetCurrentContextPersistingL2Cache() Result {
 	stat := C.cuCtxResetPersistingL2Cache()
 
@@ -232,6 +317,9 @@ func ResetCurrentContextPersistingL2Cache() Result {
 	return nil
 }
 
+// Block for the current context's tasks to complete.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g7a54725f28d34b8c6299f0c6ca579616
 func CurrentContextSynchronize() Result {
 	stat := C.cuCtxSynchronize()
 
@@ -242,6 +330,9 @@ func CurrentContextSynchronize() Result {
 	return nil
 }
 
+// Pushes a context on the current CPU thread.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1gb02d4c850eb16f861fe5a29682cc90ba
 func PushCurrentContext(ctx *Context) Result {
 	stat := C.cuCtxPushCurrent(ctx.ctx)
 
@@ -252,6 +343,9 @@ func PushCurrentContext(ctx *Context) Result {
 	return nil
 }
 
+// Pops the current CUDA context from the current CPU thread.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__CTX.html#group__CUDA__CTX_1g2fac188026a062d92e91a8687d0a7902
 func PopCurrentContext() (*Context, Result) {
 	var ctx C.CUcontext
 	stat := C.cuCtxPopCurrent(&ctx)
@@ -263,6 +357,9 @@ func PopCurrentContext() (*Context, Result) {
 	return &Context{ctx}, nil
 }
 
+// Retain the primary context on the GPU.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__PRIMARY__CTX.html#group__CUDA__PRIMARY__CTX_1g9051f2d5c31501997a6cb0530290a300
 func DevicePrimaryCtxRetain(device *Device) (*PrimaryCtx, Result) {
 	var ctx C.CUcontext
 	stat := C.cuDevicePrimaryCtxRetain(&ctx, C.int(device.dev))
@@ -274,6 +371,9 @@ func DevicePrimaryCtxRetain(device *Device) (*PrimaryCtx, Result) {
 	return &PrimaryCtx{Context{ctx}, device}, nil
 }
 
+// Release the primary context on the GPU.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__PRIMARY__CTX.html#group__CUDA__PRIMARY__CTX_1gf2a8bc16f8df0c88031f6a1ba3d6e8ad
 func (c *PrimaryCtx) Release() Result {
 	stat := C.cuDevicePrimaryCtxRelease(C.int(c.device.dev))
 
@@ -284,6 +384,9 @@ func (c *PrimaryCtx) Release() Result {
 	return nil
 }
 
+// Get the state of the primary context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__PRIMARY__CTX.html#group__CUDA__PRIMARY__CTX_1g65f3e018721b6d90aa05cfb56250f469
 func (c *PrimaryCtx) GetState() (ContextFlags, bool, Result) {
 	var flags C.uint
 	var active C.int
@@ -296,6 +399,9 @@ func (c *PrimaryCtx) GetState() (ContextFlags, bool, Result) {
 	return ContextFlags(flags), active == 1, nil
 }
 
+// Set flags for the primary context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__PRIMARY__CTX.html#group__CUDA__PRIMARY__CTX_1gd779a84f17acdad0d9143d9fe719cfdf
 func (c *PrimaryCtx) SetFlags(flags ContextFlags) Result {
 	stat := C.cuDevicePrimaryCtxSetFlags(c.device.dev, C.uint(flags))
 
@@ -306,6 +412,9 @@ func (c *PrimaryCtx) SetFlags(flags ContextFlags) Result {
 	return nil
 }
 
+// Destroy all allocations and reset all state on the primary context.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__PRIMARY__CTX.html#group__CUDA__PRIMARY__CTX_1g5d38802e8600340283958a117466ce12
 func (c *PrimaryCtx) Reset() Result {
 	stat := C.cuDevicePrimaryCtxReset(C.int(c.device.dev))
 
@@ -316,6 +425,7 @@ func (c *PrimaryCtx) Reset() Result {
 	return nil
 }
 
+// Return the native handle of the primary context.
 func (c *PrimaryCtx) NativeHandle() uintptr {
 	return uintptr(unsafe.Pointer(c.ctx))
 }

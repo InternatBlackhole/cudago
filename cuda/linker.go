@@ -4,13 +4,18 @@ package cuda
 import "C"
 import "unsafe"
 
+// Represents a CUDA linker state
 type LinkState struct {
 	state   C.CUlinkState
 	options []C.uint // have to stay alive
 }
 
+// JIT Option
 type JitInputType int
 
+// Creates a pending JIT linker invocation.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__MODULE.html#group__CUDA__MODULE_1g86ca4052a2fab369cb943523908aa80d
 func NewCudaLinkState(linkOptions []JitOption) (*LinkState, Result) {
 	var state C.CUlinkState
 	_, vals, optsAddr, valsAddr := parseJitOptions(linkOptions)
@@ -22,6 +27,9 @@ func NewCudaLinkState(linkOptions []JitOption) (*LinkState, Result) {
 	return &LinkState{state, vals}, nil
 }
 
+// Destroys state for a JIT linker invocation.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__MODULE.html#group__CUDA__MODULE_1g01b7ae2a34047b05716969af245ce2d9
 func (l *LinkState) Destroy() Result {
 	stat := C.cuLinkDestroy(l.state)
 	if stat != C.CUDA_SUCCESS {
@@ -30,6 +38,9 @@ func (l *LinkState) Destroy() Result {
 	return nil
 }
 
+// Complete a pending linker invocation.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__MODULE.html#group__CUDA__MODULE_1g818fcd84a4150a997c0bba76fef4e716
 func (l *LinkState) Complete() (cubin []byte, err Result) {
 	var _cubin unsafe.Pointer = nil
 	var cubinSize C.size_t
@@ -40,6 +51,9 @@ func (l *LinkState) Complete() (cubin []byte, err Result) {
 	return C.GoBytes(_cubin, C.int(cubinSize)), nil
 }
 
+// Add an input to a pending linker invocation.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__MODULE.html#group__CUDA__MODULE_1g3ebcd2ccb772ba9c120937a2d2831b77
 func (l *LinkState) AddData(data []byte, kind JitInputType, name string, options []JitOption) Result {
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
@@ -54,6 +68,9 @@ func (l *LinkState) AddData(data []byte, kind JitInputType, name string, options
 	return nil
 }
 
+// Add a file input to a pending linker invocation.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__MODULE.html#group__CUDA__MODULE_1g1224c0fd48d4a683f3ce19997f200a8c
 func (l *LinkState) AddFile(path string, kind JitInputType, options []JitOption) Result {
 	cfilename := C.CString(path)
 	defer C.free(unsafe.Pointer(cfilename))
@@ -68,6 +85,7 @@ func (l *LinkState) AddFile(path string, kind JitInputType, options []JitOption)
 	return nil
 }
 
+// Returns the native handle of the CUDA linker state.
 func (l *LinkState) NativePointer() uintptr {
 	return uintptr(unsafe.Pointer(l.state))
 }

@@ -9,16 +9,22 @@ import (
 	"unsafe"
 )
 
+// Represtents the native CUDA dim3 struct
 type Dim3 struct {
 	X, Y, Z uint32
 }
 
+// Represents a CUDA kernel
 type Kernel struct {
 	kern C.CUkernel
 }
 
+// Represents a CUDA function attribute
 type FunctionAttribute int
 
+// Returns a function handle.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__LIBRARY.html#group__CUDA__LIBRARY_1ge4cf9abafaba338acb977585b0d7374a
 func (k *Kernel) Function() (*Function, Result) {
 	var fun C.CUfunction
 	stat := C.cuKernelGetFunction(&fun, k.kern)
@@ -28,6 +34,9 @@ func (k *Kernel) Function() (*Function, Result) {
 	return &Function{fun}, nil
 }
 
+// Returns a library handle.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__LIBRARY.html#group__CUDA__LIBRARY_1g10ca8b20e237abbf3cf5a070d70b9cb3
 func (k *Kernel) GetLibrary() (*Library, Result) {
 	var mod C.CUlibrary
 	stat := C.cuKernelGetLibrary(&mod, k.kern)
@@ -38,6 +47,9 @@ func (k *Kernel) GetLibrary() (*Library, Result) {
 	return &Library{mod}, nil
 }
 
+// Returns the function name of kernel.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__LIBRARY.html#group__CUDA__LIBRARY_1ge758151073b777ef3ba11a45f7d22adf
 func (k *Kernel) GetName() (string, Result) {
 	var name *C.char = (*C.char)(C.malloc(256))
 	defer C.free(unsafe.Pointer(name))
@@ -49,6 +61,9 @@ func (k *Kernel) GetName() (string, Result) {
 	return C.GoString(name), nil
 }
 
+// Returns the offset and size of a kernel parameter in the device-side parameter layout.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__LIBRARY.html#group__CUDA__LIBRARY_1ga61653c9f13f713527e189fb0c2fe235
 func (k *Kernel) GetParamInfo(paramIndex uint64) (paramOffset uint64, paramSize uint64, err Result) {
 	var offset, size C.size_t
 	stat := C.cuKernelGetParamInfo(k.kern, C.size_t(paramIndex), &offset, &size)
@@ -59,6 +74,9 @@ func (k *Kernel) GetParamInfo(paramIndex uint64) (paramOffset uint64, paramSize 
 	return uint64(offset), uint64(size), nil
 }
 
+// Returns information about the kernel.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__LIBRARY.html#group__CUDA__LIBRARY_1gd98317cb151b99fbd95767418122071f
 func (k *Kernel) GetAttribute(attr FunctionAttribute, device *Device) (uint64, Result) {
 	var value C.int
 	stat := C.cuKernelGetAttribute(&value, C.CUfunction_attribute(attr), k.kern, device.dev)
@@ -69,6 +87,9 @@ func (k *Kernel) GetAttribute(attr FunctionAttribute, device *Device) (uint64, R
 	return uint64(value), nil
 }
 
+// Sets information about the kernel.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__LIBRARY.html#group__CUDA__LIBRARY_1g1093ade718915249de3b14320d567067
 func (k *Kernel) SetAttribute(attr FunctionAttribute, value int, device *Device) Result {
 	stat := C.cuKernelSetAttribute(C.CUfunction_attribute(attr), C.int(value), k.kern, device.dev)
 	if stat != C.CUDA_SUCCESS {
@@ -77,6 +98,9 @@ func (k *Kernel) SetAttribute(attr FunctionAttribute, value int, device *Device)
 	return nil
 }
 
+// Sets the preferred cache configuration for a device kernel.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__LIBRARY.html#group__CUDA__LIBRARY_1g8490476e5d3573c7ede78f29bd8cde51
 func (k *Kernel) SetCacheConfig(config CacheConfig, device *Device) Result {
 	stat := C.cuKernelSetCacheConfig(k.kern, C.CUfunc_cache(config), device.dev)
 	if stat != C.CUDA_SUCCESS {
@@ -85,11 +109,17 @@ func (k *Kernel) SetCacheConfig(config CacheConfig, device *Device) Result {
 	return nil
 }
 
+// Launches the CUDA kernel.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__EXEC.html#group__CUDA__EXEC_1gb8f3dc3031b40da29d5f9a7139e52e15
 func (kernel *Kernel) Launch(grid, block Dim3, args ...unsafe.Pointer) Result {
 	return kernel.LaunchEx(grid, block, 0, nil, args...)
 }
 
-// TODO: add attributes
+// Launches the CUDA kernel with launch-time configuration.
+// Currently, the 'attributes' parameter is not supported.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__EXEC.html#group__CUDA__EXEC_1gb9c891eb6bb8f4089758e64c9c976db9
 func (kernel *Kernel) LaunchEx(grid, block Dim3, sharedMem uint64, stream *Stream /*attributes?,*/, args ...unsafe.Pointer) Result {
 	fun, err := kernel.Function()
 	if err != nil {
@@ -98,6 +128,7 @@ func (kernel *Kernel) LaunchEx(grid, block Dim3, sharedMem uint64, stream *Strea
 	return internalLaunchEx(fun.fun, grid, block, sharedMem, stream, args...)
 }
 
+// Returns the native pointer of the kernel.
 func (kernel *Kernel) NativePointer() uintptr {
 	return uintptr(unsafe.Pointer(kernel.kern))
 }

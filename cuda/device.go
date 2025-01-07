@@ -7,6 +7,7 @@ import (
 	"unsafe"
 )
 
+// Represents a CUDA device
 type Device struct {
 	dev C.CUdevice
 }
@@ -14,8 +15,13 @@ type Device struct {
 type FlushGPUDirectRDMAWritesScope int
 type FlushGPUDirectRDMAWritesTarget int
 type AffinityType uint32
+
+// Represents a device attribute
 type DeviceAttribute uint32
 
+// Returns the number of compute-capable devices.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__DEVICE.html#group__CUDA__DEVICE_1g52b5ce05cb8c5fb6831b2c0ff2887c74
 func DeviceCount() (int, Result) {
 	var count C.int
 	err := C.cuDeviceGetCount(&count)
@@ -25,6 +31,9 @@ func DeviceCount() (int, Result) {
 	return int(count), nil
 }
 
+// Returns a Device object to a compute device.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__DEVICE.html#group__CUDA__DEVICE_1g8bdd1cc7201304b01357b8034f6587cb
 func DeviceGet(device int) (*Device, Result) {
 	var dev C.CUdevice
 	err := C.cuDeviceGet(&dev, C.int(device))
@@ -34,6 +43,9 @@ func DeviceGet(device int) (*Device, Result) {
 	return &Device{dev}, nil
 }
 
+// Returns an identifier string for the device.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__DEVICE.html#group__CUDA__DEVICE_1gef75aa30df95446a845f2a7b9fffbb7f
 func (dev *Device) Name() (string, Result) {
 	defaultSize := 256
 	name := (*C.char)(C.malloc(C.ulong(defaultSize)))
@@ -45,6 +57,9 @@ func (dev *Device) Name() (string, Result) {
 	return C.GoString(name), nil
 }
 
+// Returns the total amount of memory on the device.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__DEVICE.html#group__CUDA__DEVICE_1gc6a0d6551335a3780f9f3c967a0fde5d
 func (dev *Device) TotalMem() (uint64, Result) {
 	var mem C.size_t
 	err := C.cuDeviceTotalMem(&mem, dev.dev)
@@ -54,19 +69,28 @@ func (dev *Device) TotalMem() (uint64, Result) {
 	return uint64(mem), nil
 }
 
+// FUNCTION NOT IMPLEMENTED.
+// DO NOT USE.
 func (dev *Device) GetDefaultMemPool() {
 	//TODO: implement
 }
 
+// FUNCTION NOT IMPLEMENTED.
+// DO NOT USE.
 func (dev *Device) GetMemPool() {
 	//TODO: implement
 }
 
+// FUNCTION NOT IMPLEMENTED.
+// DO NOT USE.
 func (dev *Device) SetMemPool() Result {
 	//TODO: implement
 	return ErrUnsupported
 }
 
+// Return an UUID for the device.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__DEVICE.html#group__CUDA__DEVICE_1g987b46b884c101ed5be414ab4d9e60e4
 func (dev *Device) UUID() (string, Result) {
 	uuid := make([]byte, 16)
 	err := C.cuDeviceGetUuid((*C.CUuuid)(unsafe.Pointer(&uuid[0])), dev.dev)
@@ -76,6 +100,9 @@ func (dev *Device) UUID() (string, Result) {
 	return string(uuid), nil
 }
 
+// Return an UUID for the device (11.4+).
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__DEVICE.html#group__CUDA__DEVICE_1gdf3394a41af9cdb9f653386ed4991a1f
 func (dev *Device) UUIDv2() (string, Result) {
 	uuid := make([]byte, 16)
 	err := C.cuDeviceGetUuid_v2((*C.CUuuid)(unsafe.Pointer(&uuid[0])), dev.dev)
@@ -85,6 +112,9 @@ func (dev *Device) UUIDv2() (string, Result) {
 	return string(uuid), nil
 }
 
+// Returns information about the device.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__DEVICE.html#group__CUDA__DEVICE_1g9c3e1414f0ad901d3278a4d6645fc266
 func (dev *Device) GetAttribute(attr DeviceAttribute) (int, Result) {
 	var attri C.int
 	err := C.cuDeviceGetAttribute(&attri, C.CUdevice_attribute(attr), dev.dev)
@@ -101,6 +131,7 @@ func (dev *Device) fastGetAttr(attr DeviceAttribute) int {
 	return int(attri)
 }
 
+// Returns all attributes of the device and their values.
 func (dev *Device) GetAllAttributes() map[DeviceAttribute]int {
 	attrs := make(map[DeviceAttribute]int)
 	for attrNum := range deviceAttributeStrings {
@@ -109,6 +140,9 @@ func (dev *Device) GetAllAttributes() map[DeviceAttribute]int {
 	return attrs
 }
 
+// Returns information about the execution affinity support of the device.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__DEVICE.html#group__CUDA__DEVICE_1g7f0091850e0841f367f13d623456427d
 func (dev *Device) GetExecAffinitySupport(afType AffinityType) (int, Result) {
 	var supported C.int
 	err := C.cuDeviceGetAttribute(&supported, C.CUdevice_attribute(afType), dev.dev)
@@ -118,7 +152,8 @@ func (dev *Device) GetExecAffinitySupport(afType AffinityType) (int, Result) {
 	return int(supported), nil
 }
 
-// GetLuid returns (LUID, deviceNodeMask) for the device
+// FUNCTION NOT IMPLEMENTED.
+// Return an LUID and device node mask for the device.
 func (dev *Device) GetLuid() (byte, uint32, Result) {
 	//TODO: implement
 	/*var luid C.CUuuid
@@ -131,19 +166,25 @@ func (dev *Device) GetLuid() (byte, uint32, Result) {
 	return 0, 0, ErrUnsupported
 }
 
+// FUNCTION NOT IMPLEMENTED.
 func (dev *Device) GetNvSciSyncAttributes() {
 	//TODO: implement
 }
 
+// FUNCTION NOT IMPLEMENTED.
 func (dev *Device) GetTexture1SLinearMaxWidth(format int, numChannels uint32) (uint64, Result) {
 	//TODO: implement till end
 	return 0, ErrUnsupported
 }
 
+// Returns the native handle of the device.
 func (dev *Device) NativeHandle() uintptr {
 	return uintptr(dev.dev)
 }
 
+// Blocks until remote writes are visible to the specified scope.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__DEVICE.html#group__CUDA__DEVICE_1g265e3c82ef0f0fe035f85c4c45a8fbdf
 func FlushGPUDirectRDMAWrites(target FlushGPUDirectRDMAWritesTarget,
 	scope FlushGPUDirectRDMAWritesScope) Result {
 	err := C.cuFlushGPUDirectRDMAWrites(C.CUflushGPUDirectRDMAWritesTarget(target),

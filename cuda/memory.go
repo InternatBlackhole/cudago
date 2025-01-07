@@ -6,16 +6,20 @@ import (
 	"unsafe"
 )
 
+// All possible number types in Go.
+// For use in memory allocation functions.
 type Number interface {
 	int | int8 | int16 | int32 | int64 |
 		uint | uint8 | uint16 | uint32 | uint64 | uintptr |
 		float32 | float64
 }
 
+// Specifies that this object can be freed.
 type Freeable interface {
 	Free() Result
 }
 
+// Represents a memory allocation that can be copied to and from the device.
 type Memory interface {
 	Freeable
 	MemcpyFromDevice(dst []byte) Result
@@ -23,12 +27,14 @@ type Memory interface {
 	//Memset(value byte) Result
 }
 
+// Represents a memory allocation on the device.
 type DeviceMemory struct {
 	Ptr      uintptr //CUdeviceptr
 	Size     uint64
 	freeable bool
 }
 
+// Represents a memory allocation on the host.
 type HostMemory[T Number] struct {
 	Ptr        uintptr //address of the first byte
 	Arr        []T
@@ -36,21 +42,29 @@ type HostMemory[T Number] struct {
 	registered bool
 }
 
+// Represents a managed/unified memory allocation.
 type ManagedMemory[T Number] struct {
 	Ptr        uintptr
 	Arr        []T
 	ActualSize uint64
 }
 
+// Flags for memory allocation.
 type MemAttachFlag int
+
+// Flags for host memory allocation.
 type HostMemAllocFlag int
+
+// Flags for host memory registration.
 type HostMemRegisterFlag int
 
+// Wraps a device memory pointer to this library's DeviceMemory type.
 func WrapAllocationDevice(ptr uintptr, size uint64, freeable bool) *DeviceMemory {
 	return &DeviceMemory{ptr, size, freeable}
 }
 
-// Registers your host memory with CUDA. It is your responsibility to free the memory when you are done with it (after unregistering it).
+// Registers your host memory with CUDA.
+// It is your responsibility to free the memory when you are done with it (after unregistering it).
 func RegisterAllocationHost[T Number](ptr []T, elemSize uint64, flags HostMemRegisterFlag) (*HostMemory[T], Result) {
 	len := uint64(len(ptr))
 	actualSize := len * elemSize
@@ -62,6 +76,7 @@ func RegisterAllocationHost[T Number](ptr []T, elemSize uint64, flags HostMemReg
 	return &HostMemory[T]{uintptr(firstElemAddr), unsafe.Slice((*T)(firstElemAddr), len), actualSize, true}, nil
 }
 
+// Allocates size bytes of device memory.
 func DeviceMemAlloc(size uint64) (*DeviceMemory, Result) {
 	var ptr C.ulonglong
 	stat := C.cuMemAlloc(&ptr, C.size_t(size))
@@ -73,6 +88,7 @@ func DeviceMemAlloc(size uint64) (*DeviceMemory, Result) {
 	return &DeviceMemory{uintptr(ptr), size, true}, nil
 }
 
+// Frees memory allocated on the device.
 func (ptr *DeviceMemory) Free() Result {
 	if ptr == nil || ptr.Ptr == 0 {
 		return nil
@@ -93,6 +109,7 @@ func (ptr *DeviceMemory) Free() Result {
 	return nil
 }
 
+// Copies srcSize bytes of data from the host located at src to the device memory allocation.
 func (dev *DeviceMemory) MemcpyToDevice(src unsafe.Pointer, srcSize uint64) Result {
 	if dev == nil || dev.Ptr == 0 {
 		return newInternalError("invalid device memory")
@@ -111,6 +128,7 @@ func (dev *DeviceMemory) MemcpyToDevice(src unsafe.Pointer, srcSize uint64) Resu
 	return nil
 }
 
+// Copies dstSize bytes of data from the device memory allocation to the host located at dst.
 func (dev *DeviceMemory) MemcpyFromDevice(dst unsafe.Pointer, dstSize uint64) Result {
 
 	if dev == nil || dev.Ptr == 0 {
@@ -130,6 +148,7 @@ func (dev *DeviceMemory) MemcpyFromDevice(dst unsafe.Pointer, dstSize uint64) Re
 	return nil
 }
 
+// Allocates size bytes of host memory with flags.
 func HostMemAllocWithFlags[T Number](len uint64, elemSize uint64, flags HostMemAllocFlag) (*HostMemory[T], Result) {
 	var ptr unsafe.Pointer
 	size := len * elemSize
@@ -142,6 +161,10 @@ func HostMemAllocWithFlags[T Number](len uint64, elemSize uint64, flags HostMemA
 	return &HostMemory[T]{uintptr(ptr), unsafe.Slice((*T)(ptr), len), size, false}, nil
 }
 
+// Allocates size bytes of host memory.
+// This method of allocation page-lock the memory thus allowing for faster transfers between the host and device.
+//
+// See: https://docs.nvidia.com/cuda/archive/12.6.0/cuda-driver-api/group__CUDA__MEM.html#group__CUDA__MEM_1gdd8311286d2c2691605362c689bc64e0
 func HostMemAlloc[T Number](len uint64, elemSize uint64) (*HostMemory[T], Result) {
 	var ptr unsafe.Pointer
 	size := len * elemSize
@@ -152,6 +175,7 @@ func HostMemAlloc[T Number](len uint64, elemSize uint64) (*HostMemory[T], Result
 	return &HostMemory[T]{uintptr(ptr), unsafe.Slice((*T)(ptr), len), size, false}, nil
 }
 
+// Frees memory allocated on the host.
 func (ptr *HostMemory[T]) Free() Result {
 	if ptr.Arr == nil || ptr.ActualSize == 0 {
 		return nil
@@ -212,10 +236,12 @@ func (ptr *HostMemory) MemcpyFromDevice(dst []byte) Result {
 	return nil
 }*/
 
+// Returns the host memory allocation as a byte slice.
 func (ptr *HostMemory[T]) AsByteSlice() []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(&ptr.Arr[0])), int(ptr.ActualSize))
 }
 
+// Allocates size bytes of managed memory with flags.
 func ManagedMemAllocFlags[T Number](elems uint64, elemSize uint64, flags MemAttachFlag) (*ManagedMemory[T], Result) {
 	var ptr C.CUdeviceptr
 	size := elems * elemSize
@@ -227,10 +253,12 @@ func ManagedMemAllocFlags[T Number](elems uint64, elemSize uint64, flags MemAtta
 	return &ManagedMemory[T]{uintptr(ptr), unsafe.Slice((*T)(unsafe.Pointer(uintptr(ptr))), elems), size}, nil
 }
 
+// Allocates size bytes of managed memory.
 func ManagedMemAlloc[T Number](elems uint64, elemSize uint64) (*ManagedMemory[T], Result) {
 	return ManagedMemAllocFlags[T](elems, elemSize, CU_MEM_ATTACH_GLOBAL)
 }
 
+// Frees allocated managed memory.
 func (ptr *ManagedMemory[T]) Free() Result {
 	if ptr == nil || ptr.Ptr == 0 {
 		return nil
@@ -248,10 +276,13 @@ func (ptr *ManagedMemory[T]) Free() Result {
 	return nil
 }
 
+// Returns the managed memory allocation as a byte slice.
 func (ptr *ManagedMemory[T]) AsByteSlice() []byte {
 	return unsafe.Slice((*byte)(unsafe.Pointer(ptr.Ptr)), int(ptr.ActualSize))
 }
 
+// Copies size bytes of data from src to dst.
+// Can be used to copy data between device and host memory or between device memory allocations.
 func MemCpy(dst uintptr, src uintptr, size uint64) Result {
 	stat := C.cuMemcpy(C.ulonglong(dst), C.ulonglong(src), C.size_t(size))
 	if stat != C.CUDA_SUCCESS {
@@ -260,6 +291,8 @@ func MemCpy(dst uintptr, src uintptr, size uint64) Result {
 	return nil
 }
 
+// Copies size bytes of data from src to dst asynchronously.
+// Can be used to copy data between device and host memory or between device memory allocations.
 func MemCpyAsync(dst uintptr, src uintptr, size uint64, stream *Stream) Result {
 	str := C.CUstream(nil)
 	if stream != nil {
