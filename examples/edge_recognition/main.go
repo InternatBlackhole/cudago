@@ -67,7 +67,9 @@ func borders(jpgPath string) {
 	panicErr(err)
 	defer end.Destroy()
 
+	//You can use either the commented version...
 	//finalImg := make([]byte, size)
+	//... or this one
 	finalImg, err := cuda.HostMemAlloc[byte](size, 1)
 	panicErr(err)
 	defer finalImg.Free()
@@ -102,7 +104,6 @@ func borders(jpgPath string) {
 
 	final := image.NewGray(img.Bounds())
 	final.Pix = finalImg.Arr
-	//final.Pix = finalImg
 
 	err = jpeg.Encode(outFile, final, nil)
 	panicErr(err)

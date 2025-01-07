@@ -59,7 +59,11 @@ export CGO_CFLAGS=$(pkg-config --cflags cudart-12.6) # or other version
 export CGO_LDFLAGS=$(pkg-config --libs cudart-12.6) # or other version
 ```
 
-Then just run the `go build` command with all your desired flags if you wish to build or `go install github.com/InternatBlackhole/cudago/CudaGo@latest` to install the tool into your `$GOPATH/bin` directory.
+Then just run the `go build` command with all your desired flags if you wish to build or 
+```bash 
+go install github.com/InternatBlackhole/cudago/CudaGo@latest
+```
+to install the tool into your `$GOPATH/bin` directory.
 
 ## CudaGo usage
 
