@@ -1,4 +1,7 @@
-./*.png
+*.png
 
-./outImgs/
-./benches/
+outImgs/
+benches/
+final_benches_call/
+
+clock_test.cpp

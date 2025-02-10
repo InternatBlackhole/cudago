@@ -1,5 +1,5 @@
-./old/
-./headers/gen/
-./build/
+old/
+headers/gen/
+build/
 
-./test
+test

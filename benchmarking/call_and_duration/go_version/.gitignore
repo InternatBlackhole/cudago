@@ -1,9 +1,9 @@
 *.old
 
-./sort/
-./ints/
-./edge/
+sort/
+ints/
+edge/
 
-./edge_recognition
+edge_recognition
 
-./info.txt
+info.txt

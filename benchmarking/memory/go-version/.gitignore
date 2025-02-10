@@ -1,4 +1,4 @@
-./cu/
-./ignore__*
+cu/
+ignore__*
 
-./test
+test
