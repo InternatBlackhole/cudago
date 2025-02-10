@@ -1,4 +1,4 @@
 ./*.png
 
-./outImgs
-./benches
+./outImgs/
+./benches/
