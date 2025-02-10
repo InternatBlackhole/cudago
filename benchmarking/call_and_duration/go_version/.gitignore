@@ -1,0 +1,9 @@
+*.old
+
+./sort/
+./ints/
+./edge/
+
+./edge_recognition
+
+./info.txt
