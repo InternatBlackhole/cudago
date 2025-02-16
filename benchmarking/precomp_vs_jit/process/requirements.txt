@@ -10,6 +10,9 @@ pandas==2.2.3
 pillow==11.1.0
 pip==24.3.1
 pyparsing==3.2.1
+pyqt6==6.8.1
+pyqt6-qt6==6.8.2
+pyqt6-sip==13.10.0
 python-dateutil==2.9.0.post0
 pytz==2024.2
 scikit-learn==1.6.1
