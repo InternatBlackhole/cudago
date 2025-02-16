@@ -49,20 +49,6 @@ func main() {
 	//Print header
 	fmt.Printf(reportHeader)
 
-	/*fmt.Fprintln(os.Stderr, "Calling all kernels once to avoid first call overhead...")
-	{
-		grid, block := cuda.Dim3{X: 1, Y: 1, Z: 1}, cuda.Dim3{X: 1, Y: 1, Z: 1}
-		d, _ := cuda.DeviceMemAlloc(1)
-		edge.Borders(grid, block, d.Ptr, 0, 0, d.Ptr, 0)
-		sorting.BitonicSortStart(grid, block, d.Ptr, 0)
-		sorting.BitonicSortMiddle(grid, block, d.Ptr, 0, 0, 0)
-		sorting.BitonicSortFinish(grid, block, d.Ptr, 0, 0)
-		ints.AddToAll(grid, block, d.Ptr, 0, 0)
-		cuda.CurrentContextSynchronize()
-		d.Free()
-	}
-	fmt.Fprintln(os.Stderr, "Finished calling all kernels once")*/
-
 	fmt.Fprintln(os.Stderr, "Starting test: edge recognition...")
 
 	for _, picPath := range pics {
@@ -111,15 +97,22 @@ func main() {
 		err = d_array.MemcpyToDevice(unsafe.Pointer(arr.Ptr), arr.ActualSize)
 		panicErr(err)
 
+		callDurNs, kernelDurMs :=
+			increase(d_array, uint32(size), elemSize, numThreads, 10)
 		sort(d_array, uint32(size), elemSize, numThreads)
-		increase(d_array, uint32(size), elemSize, numThreads, 10)
 
 		err = d_array.MemcpyFromDevice(unsafe.Pointer(arr.Ptr), arr.ActualSize)
 		panicErr(err)
 
-		arr.Free()
+		fmt.Printf(reportFormat, "AddToAll_GoStartToEndKernelCall", "", float64(callDurNs)/1000)
+		fmt.Printf(reportFormat, "AddToAll_KernelCall", "", kernelDurMs)
+
 		d_array.Free()
+		arr.Free()
 	}
+	err = cuda.CurrentContextSynchronize()
+	panicErr(err)
+
 	fmt.Fprintln(os.Stderr, "Ended test: bitonic sort with increase")
 	fmt.Println()
 }

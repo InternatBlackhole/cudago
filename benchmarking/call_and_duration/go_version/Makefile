@@ -7,13 +7,13 @@ edge_recognition: main.go edge/edges.go sort/bitonic-sort.go ints/ints.go
 	go build -o edge_recognition .
 
 edge/edges.go edge/utilities.go &: edges.cu
-	~/go/bin/CudaGo -package edge -precompile -- edges.cu
+	~/go/bin/CudaGo -package edge -precompile -- $^
 
 sort/bitonic-sort.go sort/utilities.go &: bitonic-sort.cu
-	~/go/bin/CudaGo -package sort -precompile -- bitonic-sort.cu
+	~/go/bin/CudaGo -package sort -precompile -- $^
 
 ints/ints.go ints/utilities.go &: ints.cu
-	~/go/bin/CudaGo -package ints -precompile -- ints.cu
+	~/go/bin/CudaGo -package ints -precompile -- $^
 
 
 .PHONY: clean

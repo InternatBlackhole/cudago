@@ -77,23 +77,6 @@ int main(int argc, char **argv)
 
     printf(reportHeader);
 
-    /*log("Calling all kernels to avoid first call overhead...");
-    {
-        // i don't care if they fail
-        dim3 block(1, 1, 1), grid(1, 1, 1);
-        int64_t *data = 0;
-        cudaMalloc((void **)&data, 1);
-        borders<<<grid, block>>>((unsigned char*)data, 0, 0, (unsigned char*)data, 0);
-        bitonicSortStart<<<grid, block>>>((int*)data, 0);
-        bitonicSortMiddle<<<grid, block>>>((int*)data, 0, 0, 0);
-        bitonicSortFinish<<<grid, block>>>((int*)data, 0, 0);
-        addToAll<<<grid, block>>>((int*)data, 0, 0);
-        cudaFree(data);
-
-        cudaDeviceSynchronize();
-    }
-    log("All kernels called once");*/
-
     log("Starting border recognition...");
 
     for (int i = 2; i < argc; i++)
@@ -132,14 +115,16 @@ int main(int argc, char **argv)
         
         checkCudaErrors(cudaMemcpy(d_arr, data, size * elemSize, cudaMemcpyHostToDevice));
 
-        sort(d_arr, size, elemSize, numThreads);
         increase(d_arr, size, elemSize, numThreads, 10);
+        sort(d_arr, size, elemSize, numThreads);
 
         checkCudaErrors(cudaMemcpy(data, d_arr, size * elemSize, cudaMemcpyDeviceToHost));
 
         checkCudaErrors(cudaFree(d_arr));
         checkCudaErrors(cudaFreeHost(data));
     }
+
+    checkCudaErrors(cudaDeviceSynchronize());
 
     log("Sorting and increase done.");
 
