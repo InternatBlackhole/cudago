@@ -2,11 +2,8 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
-import sys
 import os
 import os.path as path
-import numpy as np
-from sklearn.linear_model import LinearRegression
 import colorsys
 
 pathToBench = "../bench/"
@@ -51,16 +48,24 @@ op_to_friendy_name = {
     "MemcpyToDeviceYesReg": "Memcpy to device (register)",
 }
 
-#op_to_friendy_name_slo = {
-#    "DevMallocNoReg": "Dodelitev na napravi (brez registracije)",
-#    "DevMallocYesReg": "Dodelitev na napravi (z registracijo)",
-#    "HostMallocNormal": "Dodelitev na gostitelju (malloc)",
-#    "HostMallocCUDA": "Dodelitev na gostitelju (cudaHostAlloc)",
-#    "MemcpyFromDeviceNoReg": "Prenos iz naprave (brez registracije)",
-#    "MemcpyFromDeviceYesReg": "Prenos iz naprave (z registracijo)",
-#    "MemcpyToDeviceNoReg": "Prenos na napravo (brez registracije)",
-#    "MemcpyToDeviceYesReg": "Prenos na napravo (z registracijo)",
-#}
+op_to_friendy_name_slo = {
+    #"DevMallocNoReg": "Dodelitev na napravi (brez registracije)",
+    #"DevMallocYesReg": "Dodelitev na napravi (z registracijo)",
+    #"HostMallocNormal": "Dodelitev na gostitelju (malloc)",
+    #"HostMallocCUDA": "Dodelitev na gostitelju (cudaHostAlloc)",
+    #"MemcpyFromDeviceNoReg": "Prenos iz naprave (brez registracije)",
+    #"MemcpyFromDeviceYesReg": "Prenos iz naprave (z registracijo)",
+    #"MemcpyToDeviceNoReg": "Prenos na napravo (brez registracije)",
+    #"MemcpyToDeviceYesReg": "Prenos na napravo (z registracijo)",
+    "DevMallocNoReg": "brez registracije",
+    "DevMallocYesReg": "z registracijo",
+    "HostMallocNormal": "malloc",
+    "HostMallocCUDA": "cudaHostAlloc",
+    "MemcpyFromDeviceNoReg": "Iz naprave (brez registracije)",
+    "MemcpyFromDeviceYesReg": "Iz naprave (z registracijo)",
+    "MemcpyToDeviceNoReg": "Na napravo (brez registracije)",
+    "MemcpyToDeviceYesReg": "Na napravo (z registracijo)",
+}
 
 go_dir = path.join(pathToBench, 'go')
 native_dir = path.join(pathToBench, 'native')
@@ -88,55 +93,60 @@ df_means_all =  pd.concat(
     axis=1
 ).set_index('Operation')
 
-def scatter_plot_native_go_relation(ax: plt.Axes, *dfs: tuple[pd.DataFrame, str], x: str, y: str, x_label: str, y_label: str, title: str):
-    for i, (color, (df, label)) in enumerate(zip(generate_unique_colors(len(dfs)), dfs)):
-        df.plot.scatter(x=x, y=y, ax=ax, s=25, color=color, label=label, marker='o' if len(dfs) // 2 > i else 's')
-    
-    ax.set_ylabel(y_label)
-    ax.set_xlabel(x_label)
-    ax.set_title(title)
-    
-    ax.grid(axis='both',c='0.9')
-    ax.set_axisbelow(True)
+def new_line_after_n_words(s: str, n: int):
+    words = s.split()
+    return '\n'.join(' '.join(words[i:i+n]) for i in range(0, len(words), n))
 
-labels = {
-    'title': 'Average time of memory operations',
-    'x_label': 'CUDA C++ (ms)',
-    'y_label': 'Go wrapper (ms)',
-    'x': 'TimeNative',
-    'y': 'TimeGo',
+figure = plt.figure(figsize=(9,6), layout='tight')
+
+kwargs = {
+    'xlabel': '',
+    'ylabel': 'Čas (ms)',
+    'rot': 0
 }
 
-figure, ax = plt.subplots(figsize=(9,6))
-ax.set_xscale('log')
-ax.set_yscale('log')
-
-def get_dfs(df: pd.DataFrame):
-    dfs = []
-    for op in df.index.unique():
-        res = df.loc[op]
-        #print(res)
-        match type(res):
-            case pd.Series:
-                res = res.to_frame().transpose()
-            case pd.DataFrame:
-                pass
-        dfs.append((res / 1000, op_to_friendy_name[op]))
-    return dfs
-
-scatter_plot_native_go_relation(
-    ax,
-    *get_dfs(df_means_all),
-    **labels
+mainGrid = figure.subplot_mosaic([
+    ['dev_allocs', 'host_allocs'],
+    ['transfers', 'transfers']
+]
 )
 
-xbounds = list(ax.get_xlim())
-x = np.linspace(xbounds[0], xbounds[1], 500)
-y = x
-ax.plot(x, y, ls='--', color='.3', zorder=-100)
+#allocsGrid = mainGrid[0].subgridspec(1, 2)
+axAllocDev = mainGrid['dev_allocs'] #figure.add_subplot(allocsGrid[0])
+axAllocHost = mainGrid['host_allocs'] #figure.add_subplot(allocsGrid[1])
 
-ax.grid(axis='both',c='0.9')
-ax.set_axisbelow(True)
+#transfersGrid = mainGrid[1].subgridspec(1, 1)
+axTransfers = mainGrid['transfers'] #figure.add_subplot(transfersGrid[0])
 
-figure.tight_layout()
+column_rename = {'TimeNative': 'CUDA C++', 'TimeGo': 'Ovojnica go'}
+index_rename = {k: new_line_after_n_words(v, 2) for k, v in op_to_friendy_name_slo.items()}
+
+def getterRename(df: pd.DataFrame, contains: str, regex = False) -> pd.DataFrame:
+    return df.loc[df.index.str.contains(contains, regex=regex)].rename(columns=column_rename, index=index_rename)
+
+df = df_means / 1000 # ms
+
+df_device_alloc = getterRename(df, 'DevMalloc')
+df_host_alloc = getterRename(df, 'HostMalloc')
+df_mem_transfers = getterRename(df, 'Memcpy')
+
+df_device_alloc.plot.bar(ax=axAllocDev, title='Povprečni čas dodelitve pomnilnika na napravi', legend=False, **kwargs)
+df_host_alloc.plot.bar(ax=axAllocHost, title='Povprečni čas dodelitve pomnilnika na gostitelju', legend=True, **kwargs)
+df_mem_transfers.plot.bar(ax=axTransfers, title='Povprečni čas prenosa podatkov', logy=True, legend=True, **kwargs)
+
+formatter = lambda x, _: f'{int(x) if x == int(x) else round(x, 3)}'
+
+#axAllocDev.legend(loc='lower right')
+#axAllocHost.legend(loc='lower left')
+
+axAllocDev.yaxis.set_major_formatter(plt.FuncFormatter(formatter))
+axAllocDev.yaxis.set_minor_formatter(plt.FuncFormatter(formatter))
+
+axAllocHost.yaxis.set_major_formatter(plt.FuncFormatter(formatter))
+#axAllocHost.yaxis.set_minor_formatter(plt.FuncFormatter(formatter))
+
+axTransfers.yaxis.set_major_formatter(plt.FuncFormatter(formatter))
+axTransfers.yaxis.set_minor_formatter(plt.FuncFormatter(formatter))
+
+#figure.tight_layout()
 figure.show()

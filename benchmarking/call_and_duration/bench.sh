@@ -38,7 +38,7 @@ for i in $(seq 1 $BENCH_NUM); do
         OUT="$IMG_OUT_DIR/bench_out_$i"
         mkdir -p "$OUT"
     fi
-    CUDA_MODULE_LOADIN=EAGER $BENCHING_PROGRAM_DIR/edge_recognition $OUT $IMGS 2>"$BENCH_DIR/bench_$i.log" >"$BENCH_DIR/measurement_$i.csv"
+    $BENCHING_PROGRAM_DIR/edge_recognition $OUT $IMGS 2>"$BENCH_DIR/bench_$i.log" >"$BENCH_DIR/measurement_$i.csv"
 done
 
 echo "Waiting for all benchmarks to finish..."

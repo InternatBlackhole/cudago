@@ -15,7 +15,7 @@ import (
 
 // format: <operation>;"<image_name>";<time in ms>
 const reportFormat = "%s;\"%s\";%f\n"
-const reportHeader = "Operation;Image;Time\n"
+const reportHeader = "Operation;Test;Time\n"
 
 func main() {
 
@@ -104,8 +104,8 @@ func main() {
 		err = d_array.MemcpyFromDevice(unsafe.Pointer(arr.Ptr), arr.ActualSize)
 		panicErr(err)
 
-		fmt.Printf(reportFormat, "AddToAll_GoStartToEndKernelCall", "", float64(callDurNs)/1000)
-		fmt.Printf(reportFormat, "AddToAll_KernelCall", "", kernelDurMs)
+		fmt.Printf(reportFormat, "AddToAll_KernelCall", fmt.Sprintf("%d", size), float64(callDurNs)/1000)
+		fmt.Printf(reportFormat, "AddToAll_KernelDur", fmt.Sprintf("%d", size), kernelDurMs)
 
 		d_array.Free()
 		arr.Free()

@@ -2,7 +2,7 @@ export CGO_ENABLED=1
 export CGO_CFLAGS=$(shell pkg-config --cflags cudart)
 export CGO_LDFLAGS=$(shell pkg-config --libs cudart)
 
-edge_recognition: main.go edge/edges.go sort/bitonic-sort.go ints/ints.go
+edge_recognition: main.go edge/edges.go sort/bitonic-sort.go ints/ints.go increase.go borders.go sort.go
 	go mod tidy
 	go build -o edge_recognition .
 

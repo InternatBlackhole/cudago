@@ -106,8 +106,8 @@ func borders(reader, writer *os.File, picBaseName string) {
 	elapsedTimeMs, err := cuda.EventElapsedTime(edgesKernelStart, edgesKernelEnd)
 	panicErr(err)
 
-	fmt.Printf(reportFormat, "GoStartToEndKernelCall", picBaseName, float64(took.Nanoseconds())/1000)
-	fmt.Printf(reportFormat, "KernelCall", picBaseName, elapsedTimeMs)
+	fmt.Printf(reportFormat, "Image_KernelCall", picBaseName, float64(took.Nanoseconds())/1000)
+	fmt.Printf(reportFormat, "Image_KernelDur", picBaseName, elapsedTimeMs)
 
 	final := image.NewGray(img.Bounds())
 	final.Pix = finalImg.Arr

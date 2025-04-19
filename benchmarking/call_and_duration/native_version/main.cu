@@ -44,7 +44,7 @@ void sort(int32_t *data, int dataLen, int elemSize, int numThreads);
 void increase(int32_t *data, int dataLen, int elemSize, int numThreads, int by);
 
 const char *reportFormat = "%s;\"%s\";%f\n";
-const char *reportHeader = "Operation;Image;Time\n";
+const char *reportHeader = "Operation;Test;Time\n";
 
 #define dur(start, end) std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()
 using timer = std::chrono::high_resolution_clock;
@@ -52,6 +52,11 @@ using timer = std::chrono::high_resolution_clock;
 void report(const char *func, const char* image, int64_t time)
 {
     printf(reportFormat, func, image, time/1000.0); // microseconds
+}
+
+void report(const char *func, size_t image, int64_t time)
+{
+    printf(reportFormat, func, std::to_string(image).c_str(), time/1000.0); // microseconds
 }
 
 int main(int argc, char **argv)
@@ -109,16 +114,22 @@ int main(int argc, char **argv)
         {
             data[i] = size - i;
         }
+        std::cerr << "Data initialized" << std::endl;
 
         int32_t* d_arr = 0;
         checkCudaErrors(cudaMalloc((void **)&d_arr, size * elemSize));
+        std::cerr << "Data allocated on device" << std::endl;
         
         checkCudaErrors(cudaMemcpy(d_arr, data, size * elemSize, cudaMemcpyHostToDevice));
+        std::cerr << "Data copied to device" << std::endl;
 
         increase(d_arr, size, elemSize, numThreads, 10);
+        std::cerr << "Data increased" << std::endl;
         sort(d_arr, size, elemSize, numThreads);
+        std::cerr << "Data sorted" << std::endl;
 
         checkCudaErrors(cudaMemcpy(data, d_arr, size * elemSize, cudaMemcpyDeviceToHost));
+        std::cerr << "Data copied from device" << std::endl;
 
         checkCudaErrors(cudaFree(d_arr));
         checkCudaErrors(cudaFreeHost(data));
@@ -197,8 +208,8 @@ void borders(const char *inFile, const char *outFile, const char *baseName)
 
     //const std::chrono::duration<double, std::milli> duration = endK - startK;
 
-    report("GoStartToEndKernelCall", baseName, dur(startK, endK));
-    printf(reportFormat, "KernelCall", baseName, gpu_milliseconds);
+    report("Image_KernelCall", baseName, dur(startK, endK));
+    printf(reportFormat, "Image_KernelDur", baseName, gpu_milliseconds);
 
     stbi_write_png(outFile, width, height, COLOR_CHANNELS, finalImage, width * COLOR_CHANNELS);
 
@@ -229,19 +240,19 @@ void sort(int32_t *data, int dataLen, int elemSize, int numThreads) {
     auto startT = timer::now();
     bitonicSortStart<<<grid, block, bytesLocalMemory>>>(data, dataLen);
     auto endT = timer::now();
-    report("Sort_GoStartKernelCall", "", dur(startT, endT));
+    report("Sort_GoStartKernelCall", dataLen, dur(startT, endT));
     for (size_t k = 4 * block.x; k <= dataLen; k <<= 1)
     {
         for (size_t j = k / 2; j >= 2*block.x; j >>= 1) {
             startT = timer::now();
             bitonicSortMiddle<<<grid, block, bytesLocalMemory>>>(data, dataLen, k, j);
             endT = timer::now();
-            report("Sort_GoMiddleKernelCall", "", dur(startT, endT));
+            report("Sort_GoMiddleKernelCall", dataLen, dur(startT, endT));
         }
         startT = timer::now();
         bitonicSortFinish<<<grid, block, bytesLocalMemory>>>(data, dataLen, k);
         endT = timer::now();
-        report("Sort_GoFinishKernelCall", "", dur(startT, endT));
+        report("Sort_GoFinishKernelCall", dataLen, dur(startT, endT));
     }
 
     checkCudaErrors(cudaEventRecord(stop));
@@ -250,7 +261,7 @@ void sort(int32_t *data, int dataLen, int elemSize, int numThreads) {
     float gpu_milliseconds = 0;
     checkCudaErrors(cudaEventElapsedTime(&gpu_milliseconds, start, stop));
 
-    printf(reportFormat, "Sort_KernelCall", "", gpu_milliseconds);
+    printf(reportFormat, "Sort_KernelDur", std::to_string(dataLen).c_str(), gpu_milliseconds);
     
     checkCudaErrors(cudaEventDestroy(start));
     checkCudaErrors(cudaEventDestroy(stop));
@@ -276,8 +287,8 @@ void increase(int32_t *data, int dataLen, int elemSize, int numThreads, int by) 
     float gpu_milliseconds = 0;
     checkCudaErrors(cudaEventElapsedTime(&gpu_milliseconds, start, stop));
 
-    report("AddToAll_GoStartToEndKernelCall", "", dur(startT, endT));
-    printf(reportFormat, "AddToAll_KernelCall", "", gpu_milliseconds);
+    report("AddToAll_KernelCall", dataLen, dur(startT, endT));
+    printf(reportFormat, "AddToAll_KernelDur", std::to_string(dataLen).c_str(), gpu_milliseconds);
 
     checkCudaErrors(cudaEventDestroy(start));
     checkCudaErrors(cudaEventDestroy(stop));

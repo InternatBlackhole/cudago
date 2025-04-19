@@ -48,20 +48,24 @@ native_model = LinearRegression()
 go_model.fit(df_go_mean_by_runs['Func'].values.reshape(-1, 1), df_go_mean_by_runs['Time'].values.reshape(-1, 1))
 native_model.fit(df_native_mean_by_runs['Func'].values.reshape(-1, 1), df_native_mean_by_runs['Time'].values.reshape(-1, 1))
 
-figure, ax = plt.subplots()
+figure, ax = plt.subplots(figsize=(9,6))
 
-df_native_mean_by_runs.plot.scatter(x='Func', y='Time', c='red', label='C++ CUDA', ax=ax)
-df_go_mean_by_runs.plot.scatter(x='Func', y='Time', c='blue', label='Go wrapper', ax=ax)
+df_native_mean_by_runs.plot.scatter(x='Func', y='Time', c='red', label='CUDA C++', ax=ax)
+df_go_mean_by_runs.plot.scatter(x='Func', y='Time', c='blue', label='Ovojnica go', ax=ax)
 
-ax.plot(df_go_mean_by_runs['Func'], go_model.predict(df_go_mean_by_runs['Func'].values.reshape(-1, 1)), c='crimson', label='Go wrapper regression')
-ax.plot(df_native_mean_by_runs['Func'], native_model.predict(df_native_mean_by_runs['Func'].values.reshape(-1, 1)), c='green', label='C++ CUDA regression')
 
-ax.set_ylabel('Average duration (\u03BCs)')
-ax.set_xlabel('Kernel parameter count')
-ax.set_title('Average kernel call duration')
+ax.plot(df_go_mean_by_runs['Func'], go_model.predict(df_go_mean_by_runs['Func'].values.reshape(-1, 1)), c='crimson', label='Regresija ovojnice Go')
+ax.plot(df_native_mean_by_runs['Func'], native_model.predict(df_native_mean_by_runs['Func'].values.reshape(-1, 1)), c='green', label='Regresija CUDA C++')
+
+ax.set_ylabel('Povprečen čas (\u03BCs)')
+ax.set_xlabel('Število parametrov v ščepcu')
+ax.set_title('Povprečen čas klica ščepca')
+ax.legend()
 ax.grid(axis='both', c='0.9')
 ax.set_axisbelow(True)
 
+figure.tight_layout()
+figure.show()
 
 #df_go.plot.box(by='Func', column='Time', ax=ax1)
 #df_native.plot.box(by='Func', column='Time', ax=ax2)
